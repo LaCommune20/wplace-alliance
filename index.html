@@ -5,45 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quartier Général Tactique - Wplace</title>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #0f111a; color: #fff; overflow: hidden; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #121212; color: #fff; overflow: hidden; }
         
-        /* 🗺️ GRILLE DE DÉPLACEMENT RADAR */
+        /* 🗺️ ZONE DE DÉPLACEMENT À LA SOURIS (SCROLL) */
         #map-viewport { width: 100vw; height: 100vh; overflow: auto; position: relative; scroll-behavior: smooth; }
         
-        /* GRILLE DE COORDONNÉES STYLE ÉTAT-MAJOR (0 script externe) */
+        /* LA VRAIE CARTE DE PIXELS WPLACE EN ARRIÈRE-PLAN DIRECT (Taille réelle du canevas) */
         #grid { 
             position: relative; 
-            width: 3000px; 
-            height: 3000px; 
-            background-color: #0b0c10;
-            background-image: 
-                linear-gradient(rgba(0, 255, 170, 0.05) 2px, transparent 2px),
-                linear-gradient(90deg, rgba(0, 255, 170, 0.05) 2px, transparent 2px),
-                linear-gradient(rgba(0, 255, 170, 0.15) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 170, 0.15) 1px, transparent 1px);
-            background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+            width: 2000px; 
+            height: 2000px; 
+            background-color: #1a1a1a;
+            /* Utilisation du flux de rendu de la fresque en direct */
+            background-image: url('https://samuelscheit.com');
+            background-size: 2000px 2000px;
+            background-repeat: no-repeat;
+            background-position: center;
         }
 
-        /* AXES CENTRAUX (Repère 0,0) */
-        #axis-x { position: absolute; top: 1500px; left: 0; width: 3000px; height: 2px; background: rgba(0, 255, 170, 0.4); pointer-events: none; }
-        #axis-y { position: absolute; left: 1500px; top: 0; width: 2px; height: 3000px; background: rgba(0, 255, 170, 0.4); pointer-events: none; }
+        /* Lignes de repère des coordonnées centrales */
+        #axis-x { position: absolute; top: 1000px; left: 0; width: 2000px; height: 1px; background: rgba(255, 255, 255, 0.15); pointer-events: none; }
+        #axis-y { position: absolute; left: 1000px; top: 0; width: 1px; height: 2000px; background: rgba(255, 255, 255, 0.15); pointer-events: none; }
         
-        /* PANNEAU FIXE DES CODES COULEUR */
-        .tactical-panel { background: rgba(15, 17, 26, 0.95); padding: 15px; border-radius: 8px; border: 1px solid #1f2833; line-height: 24px; color: #fff; font-weight: bold; box-shadow: 0 4px 20px rgba(0,0,0,0.8); position: fixed; z-index: 1000; }
-        .legend { bottom: 20px; right: 20px; width: 240px; border-left: 4px solid #00ffaa; }
-        .legend h4 { margin: 0 0 8px 0; border-bottom: 1px solid #1f2833; padding-bottom: 4px; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; color: #00ffaa; }
+        /* INTERFACE DES CODES COULEURS EN SUPERPOSITION */
+        .tactical-panel { background: rgba(15, 17, 26, 0.95); padding: 15px; border-radius: 8px; border: 1px solid #333; line-height: 24px; color: #fff; font-weight: bold; box-shadow: 0 4px 20px rgba(0,0,0,0.8); position: fixed; z-index: 1000; }
+        .legend { bottom: 20px; right: 20px; width: 240px; border-left: 4px solid #FFD700; }
+        .legend h4 { margin: 0 0 8px 0; border-bottom: 1px solid #333; padding-bottom: 4px; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; color: #FFD700; }
         .legend div { display: flex; align-items: center; margin-bottom: 4px; font-size: 12px; }
         .legend i { width: 14px; height: 14px; display: inline-block; margin-right: 10px; border-radius: 4px; border: 1px solid #fff; }
         
-        /* GRAPHISME DES MARQUEURS ET DES ZONES DE SURVEILLANCE */
-        .tactical-zone { position: absolute; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); cursor: pointer; box-shadow: 0 0 15px rgba(0,0,0,0.5); transition: transform 0.2s; }
+        /* DESIGN DES REGIONS ET DES POINTS SUR LA CARTE */
+        .tactical-zone { position: absolute; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); cursor: pointer; box-shadow: 0 0 15px rgba(0,0,0,0.6); transition: transform 0.15s; }
         .pulse-anim { animation: pulse 1.5s infinite; }
         
-        /* BULLE D'INFORMATION INTERACTIVE (AU SURVOL) */
+        /* BULLE INFORMATIQUE FLOTTANTE AU SURVOL (HOVER) */
         .marker-popup { 
             display: none; 
             position: absolute; 
-            background: #1f2833; 
+            background: #1c1c1c; 
             color: #fff; 
             padding: 12px; 
             border-radius: 6px; 
@@ -51,17 +50,17 @@
             left: 50%; 
             transform: translateX(-50%); 
             width: 200px; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.6); 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.7); 
             font-size: 11px; 
             font-weight: normal; 
             text-align: left; 
             line-height: 16px; 
-            border: 1px solid #45f3ff; 
+            border: 1px solid #444; 
             z-index: 2000; 
             pointer-events: none; 
         }
         
-        .tactical-zone:hover { z-index: 1500; transform: translate(-50%, -50%) scale(1.1); }
+        .tactical-zone:hover { z-index: 1500; transform: translate(-50%, -50%) scale(1.08); }
         .tactical-zone:hover .marker-popup { display: block !important; }
         
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.5); } 70% { box-shadow: 0 0 0 15px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
@@ -69,18 +68,18 @@
 </head>
 <body>
 
-    <!-- Grille Tactique Dynamique -->
+    <!-- Explorateur de Canevas -->
     <div id="map-viewport">
         <div id="grid">
             <div id="axis-x"></div>
             <div id="axis-y"></div>
-            <!-- Les repères Supabase s'injectent ici -->
+            <!-- Injection des repères de l'alliance -->
         </div>
     </div>
 
-    <!-- Légende État-Major -->
+    <!-- Légende Flottante Tactique -->
     <div class="tactical-panel legend">
-        <h4>Radar Tactique Wplace</h4>
+        <h4>Commandement Stratégique</h4>
         <div><i style="background: rgba(255, 0, 0, 0.4); border-color: #FF0000;"></i> 🛑 Alerte Bot / Raid Intel</div>
         <div><i style="background: rgba(0, 162, 255, 0.3); border-color: #00A2FF;"></i> 🔨 Construction En Cours</div>
         <div><i style="background: rgba(0, 255, 0, 0.3); border-color: #00FF00;"></i> ✅ Objectif Terminé (Done)</div>
@@ -94,11 +93,18 @@
         const viewport = document.getElementById('map-viewport');
         const SUPABASE_KEY = "sb_publishable_V_cQamZG0uZFy_xDwUkPUA_hf8q_1uL";
 
-        // Centrer l'écran sur le point central (0,0) au lancement
+        // Centrage immédiat sur le milieu du plateau de jeu (0,0)
         window.onload = () => {
-            viewport.scrollLeft = 1000;
-            viewport.scrollTop = 1000;
+            viewport.scrollLeft = 500;
+            viewport.scrollTop = 500;
         };
+
+        // 🔄 REFRESH AUTOMATIQUE DU FOND DE CARTE TOUTES LES 5 MINUTES (300 000 ms)
+        // Télécharge la version la plus fraîche du plateau sans recharger la page
+        setInterval(() => {
+            grid.style.backgroundImage = `url('https://samuelscheit.com{Date.now()}')`;
+            console.log("🔄 Carte Wplace synchronisée à la minute actuelle !");
+        }, 300000);
 
         function getTacticalStyle(type, status) {
             if (status === 'fausse_alerte') return { color: '#EE82EE', fill: 'rgba(238, 130, 238, 0.3)', pulse: false };
@@ -120,16 +126,16 @@
             const style = getTacticalStyle(event.type, event.status);
             if(style.pulse) zone.classList.add('pulse-anim');
 
-            // Rayon ou taille par défaut (24px)
+            // Application des dimensions géométriques (Rayon ou diamètre par défaut)
             const diameter = event.radius && event.radius > 0 ? (event.radius * 2) : 24;
             zone.style.width = `${diameter}px`;
             zone.style.height = `${diameter}px`;
             zone.style.borderColor = style.color;
             zone.style.backgroundColor = style.fill;
 
-            // Placement sur notre repère radar de 3000x3000px (0,0 se situe à 1500,1500)
-            const centerX = 1500;
-            const centerY = 1500;
+            // Placement exact sur la fresque (Canevas de 2000x2000px, repère 0,0 au milieu)
+            const centerX = 1000;
+            const centerY = 1000;
             const posX = centerX + event.x; 
             const posY = centerY - event.y; 
 
@@ -165,7 +171,7 @@
                 
                 const activeIds = data.map(e => `zone-${e.id}`);
                 const currentZones = document.querySelectorAll('.tactical-zone');
-                currentMarkers = currentZones.forEach(z => {
+                currentZones.forEach(z => {
                     if(!activeIds.includes(z.id)) z.remove();
                 });
 
