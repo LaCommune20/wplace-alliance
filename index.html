@@ -8,7 +8,7 @@
         body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #121212; color: #fff; overflow: hidden; }
         #map-viewport { width: 100vw; height: 100vh; overflow: auto; position: relative; scroll-behavior: smooth; }
         
-        /* FOND DE CARTE EN CANVAS SUR LA FRESQUE OFFICIELLE */
+        /* 🗺️ LE FOND DE CARTE VISUEL DE WPLACE */
         #grid { 
             position: relative; 
             width: 2000px; 
@@ -29,9 +29,11 @@
         .legend div { display: flex; align-items: center; margin-bottom: 4px; font-size: 12px; }
         .legend i { width: 14px; height: 14px; display: inline-block; margin-right: 10px; border-radius: 4px; border: 1px solid #fff; }
         
+        /* DESIGNS DES BALISES TACTIQUES */
         .tactical-zone { position: absolute; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); cursor: pointer; box-shadow: 0 0 15px rgba(0,0,0,0.6); }
         .pulse-anim { animation: pulse 1.5s infinite; }
         
+        /* BULLE ENCADRÉ BLANC INTERACTIF (CACHÉ AU DÉPART) */
         .marker-popup { 
             display: none; 
             position: absolute; 
@@ -53,6 +55,7 @@
             pointer-events: none; 
         }
         
+        /* SURVOL DE LA SOURIS ACTIF */
         .tactical-zone:hover { z-index: 1500; }
         .tactical-zone:hover .marker-popup { display: block !important; }
         
@@ -65,6 +68,7 @@
         <div id="grid">
             <div id="axis-x"></div>
             <div id="axis-y"></div>
+            <!-- Zones tactiques injectées ici -->
         </div>
     </div>
 
@@ -78,17 +82,25 @@
         <div><i style="background: rgba(148, 0, 211, 0.4); border-color: #9400D3;"></i> ☣️ Infiltration (+2000px)</div>
     </div>
 
+    <!-- Script officiel de communication de Supabase (Autorisé par le HTTPS de GitHub Pages) -->
+    <script src="https://jsdelivr.net"></script>
+
     <script>
         const grid = document.getElementById('grid');
         const viewport = document.getElementById('map-viewport');
-        const SUPABASE_KEY = "sb_publishable_V_cQamZG0uZFy_xDwUkPUA_hf8q_1uL";
+
+        // Initialisation propre avec le connecteur sécurisé officiel
+        const supabaseClient = supabase.createClient(
+            "https://zkonsfqdmcdcaomjpnyd.supabase.co", 
+            "sb_publishable_V_cQamZG0uZFy_xDwUkPUA_hf8q_1uL"
+        );
 
         window.onload = () => {
             viewport.scrollLeft = 500;
             viewport.scrollTop = 500;
         };
 
-        // 🔄 Rafraîchissement automatique de la fresque toutes les 5 minutes
+        // Rafraîchissement automatique de la fresque toutes les 5 minutes
         setInterval(() => {
             grid.style.backgroundImage = "url('https://samuelscheit.com?refresh=" + Date.now() + "')";
         }, 300000);
@@ -118,7 +130,6 @@
             zone.style.borderColor = style.color;
             zone.style.backgroundColor = style.fill;
 
-            // Repère central 0,0 calé à 1000,1000 pixels
             const centerX = 1000;
             const centerY = 1000;
             const posX = centerX + parseInt(event.x); 
@@ -143,22 +154,13 @@
 
         async function fetchTacticalIntel() {
             try {
-                // Correction de syntaxe ici : Séparation propre de l'URL et des paramètres pour éviter le bug de concaténation
-                const url = new URL("https://supabase.co");
-                url.searchParams.append("select", "*");
-                url.searchParams.append("status", "not.eq.termine"); // On ne télécharge que les alertes actives
-                url.searchParams.append("cache", Date.now());
-
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY
-                    }
-                });
+                // Utilisation des requêtes JavaScript Supabase officielles pour écraser le bug CORS
+                const { data, error } = await supabaseClient
+                    .from('wplace_events')
+                    .select('*')
+                    .not('status', 'eq', 'termine'); // Télécharge uniquement les alertes et chantiers actifs
                 
-                if (!response.ok) throw new Error('Erreur réseau');
-                const data = await response.json();
+                if (error) throw error;
                 
                 const activeIds = data.map(e => "zone-" + e.id);
                 const currentZones = document.querySelectorAll('.tactical-zone');
@@ -166,12 +168,13 @@
                     if(!activeIds.includes(z.id)) z.remove();
                 });
 
-                data.forEach(event => createVisualZone(event));
+                data.forEach(event => createVisualMarker(event));
             } catch (err) {
                 console.error("Erreur Synchro Radar :", err);
             }
         }
 
+        // Lancement initial et boucle rapide
         fetchTacticalIntel();
         setInterval(fetchTacticalIntel, 3000);
     </script>
