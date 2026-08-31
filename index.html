@@ -5,43 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quartier Général Tactique - Wplace</title>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #0f111a; color: #fff; overflow: hidden; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #121212; color: #fff; overflow: hidden; }
         
-        /* 🗺️ GRILLE TACTIQUE ET RADAR COORDONNÉES (0 script externe) */
+        /* 🗺️ CONTENEUR POUR SCROLLER SUR LE PLATEAU DE JEU */
         #map-viewport { width: 100vw; height: 100vh; overflow: auto; position: relative; scroll-behavior: smooth; }
         
+        /* 🎨 ICI ON CHARGE LA VRAIE MAP OFFICIELLE EN IMAGE DE FOND */
         #grid { 
             position: relative; 
             width: 2000px; 
             height: 2000px; 
-            background-color: #0b0c10;
-            background-image: 
-                linear-gradient(rgba(0, 255, 170, 0.04) 2px, transparent 2px),
-                linear-gradient(90deg, rgba(0, 255, 170, 0.04) 2px, transparent 2px),
-                linear-gradient(rgba(0, 255, 170, 0.12) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 170, 0.12) 1px, transparent 1px);
-            background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+            background-color: #1a1a1a;
+            /* Flux de rendu de la carte officielle en direct */
+            background-image: url('https://wplace.live');
+            background-size: 2000px 2000px;
+            background-repeat: no-repeat;
+            background-position: center;
         }
 
-        #axis-x { position: absolute; top: 1000px; left: 0; width: 2000px; height: 2px; background: rgba(0, 255, 170, 0.3); pointer-events: none; }
-        #axis-y { position: absolute; left: 1000px; top: 0; width: 2px; height: 2000px; background: rgba(0, 255, 170, 0.3); pointer-events: none; }
+        /* Lignes d'axes centraux (0,0 au milieu de la map) */
+        #axis-x { position: absolute; top: 1000px; left: 0; width: 2000px; height: 1px; background: rgba(255, 255, 255, 0.15); pointer-events: none; }
+        #axis-y { position: absolute; left: 1000px; top: 0; width: 1px; height: 2000px; background: rgba(255, 255, 255, 0.15); pointer-events: none; }
         
-        /* INTERFACE TACTIQUE DE SUPERPOSITION */
-        .tactical-panel { background: rgba(15, 17, 26, 0.95); padding: 15px; border-radius: 8px; border: 1px solid #1f2833; line-height: 24px; color: #fff; font-weight: bold; box-shadow: 0 4px 20px rgba(0,0,0,0.8); position: fixed; z-index: 1000; }
-        .legend { bottom: 20px; right: 20px; width: 240px; border-left: 4px solid #00ffaa; }
-        .legend h4 { margin: 0 0 8px 0; border-bottom: 1px solid #1f2833; padding-bottom: 4px; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; color: #00ffaa; }
+        /* INTERFACE DES CODES COULEUR */
+        .tactical-panel { background: rgba(15, 17, 26, 0.95); padding: 15px; border-radius: 8px; border: 1px solid #333; line-height: 24px; color: #fff; font-weight: bold; box-shadow: 0 4px 20px rgba(0,0,0,0.8); position: fixed; z-index: 1000; }
+        .legend { bottom: 20px; right: 20px; width: 240px; border-left: 4px solid #FFD700; }
+        .legend h4 { margin: 0 0 8px 0; border-bottom: 1px solid #333; padding-bottom: 4px; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; color: #FFD700; }
         .legend div { display: flex; align-items: center; margin-bottom: 4px; font-size: 12px; }
         .legend i { width: 14px; height: 14px; display: inline-block; margin-right: 10px; border-radius: 4px; border: 1px solid #fff; }
         
-        /* STYLE DU MARQUEUR ET DES BALISES CIRCULAIRES */
-        .tactical-zone { position: absolute; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); cursor: pointer; box-shadow: 0 0 15px rgba(0,0,0,0.5); transition: transform 0.2s; }
+        /* DESIGNS DES ZONES TACTIQUES */
+        .tactical-zone { position: absolute; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); cursor: pointer; box-shadow: 0 0 15px rgba(0,0,0,0.6); }
         .pulse-anim { animation: pulse 1.5s infinite; }
         
-        /* ENCADRÉ VISUEL ET BULLE INFO AU SURVOL (HOVER) */
+        /* BULLE INFO CACHÉE PAR DÉFAUT */
         .marker-popup { 
             display: none; 
             position: absolute; 
-            background: #1f2833; 
+            background: #1c1c1c; 
             color: #fff; 
             padding: 12px; 
             border-radius: 6px; 
@@ -49,17 +50,18 @@
             left: 50%; 
             transform: translateX(-50%); 
             width: 200px; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.6); 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.7); 
             font-size: 11px; 
             font-weight: normal; 
             text-align: left; 
             line-height: 16px; 
-            border: 1px solid #00ffaa; 
+            border: 1px solid #444; 
             z-index: 2000; 
             pointer-events: none; 
         }
         
-        .tactical-zone:hover { z-index: 1500; transform: translate(-50%, -50%) scale(1.08); }
+        /* AFFICHAGE AU SURVOL */
+        .tactical-zone:hover { z-index: 1500; }
         .tactical-zone:hover .marker-popup { display: block !important; }
         
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.5); } 70% { box-shadow: 0 0 0 15px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
@@ -71,12 +73,12 @@
         <div id="grid">
             <div id="axis-x"></div>
             <div id="axis-y"></div>
-            <!-- Points Supabase synchronisés ici -->
+            <!-- Injection automatique de tes zones Supabase -->
         </div>
     </div>
 
     <div class="tactical-panel legend">
-        <h4>Radar Tactique Wplace</h4>
+        <h4>Commandement Stratégique</h4>
         <div><i style="background: rgba(255, 0, 0, 0.4); border-color: #FF0000;"></i> 🛑 Alerte Bot / Raid Intel</div>
         <div><i style="background: rgba(0, 162, 255, 0.3); border-color: #00A2FF;"></i> 🔨 Construction En Cours</div>
         <div><i style="background: rgba(0, 255, 0, 0.3); border-color: #00FF00;"></i> ✅ Objectif Terminé (Done)</div>
@@ -90,10 +92,16 @@
         const viewport = document.getElementById('map-viewport');
         const SUPABASE_KEY = "sb_publishable_V_cQamZG0uZFy_xDwUkPUA_hf8q_1uL";
 
+        // Centre la vue au milieu du jeu au démarrage
         window.onload = () => {
             viewport.scrollLeft = 500;
             viewport.scrollTop = 500;
         };
+
+        // Rafraîchissement forcé du fond de carte officiel toutes les 5 minutes
+        setInterval(() => {
+            grid.style.backgroundImage = "url('https://wplace.live?refresh=" + Date.now() + "')";
+        }, 300000);
 
         function getTacticalStyle(type, status) {
             if (status === 'fausse_alerte') return { color: '#EE82EE', fill: 'rgba(238, 130, 238, 0.3)', pulse: false };
@@ -120,7 +128,7 @@
             zone.style.borderColor = style.color;
             zone.style.backgroundColor = style.fill;
 
-            // Placement au pixel près sur la trame
+            // Placement exact sur la fresque (Canevas de 2000x2000px, repère 0,0 au milieu)
             const centerX = 1000;
             const centerY = 1000;
             const posX = centerX + parseInt(event.x); 
@@ -145,7 +153,7 @@
 
         async function fetchTacticalIntel() {
             try {
-                // SOUDURE DIRECTE ET NATIVE : Aucun appel aux scripts internes ou librairies officielles Supabase
+                // Requête HTTP direct native pour lire les points actifs
                 const response = await fetch("https://supabase.co" + Date.now(), {
                     method: 'GET',
                     headers: {
@@ -174,3 +182,4 @@
     </script>
 </body>
 </html>
+
