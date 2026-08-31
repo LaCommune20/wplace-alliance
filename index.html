@@ -2,7 +2,6 @@
 <html lang="fr">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -10,14 +9,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>WPlace Alliance</title>
-
-    <!-- Leaflet -->
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        crossorigin=""
-    >
+    <title>WPlace Alliance - Test carte</title>
 
     <style>
 
@@ -33,524 +25,229 @@
             width: 100%;
             height: 100%;
 
-            overflow: hidden;
-
             background: #111;
             color: white;
 
-            font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
-        #map {
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #header {
             width: 100%;
-            height: 100%;
-            background: #202020;
-        }
 
-        /*
-         * Interface supérieure
-         */
+            padding: 15px 20px;
 
-        #topbar {
+            background: #151515;
 
-            position: absolute;
-
-            top: 15px;
-            left: 15px;
-
-            z-index: 1000;
-
-            padding: 12px 18px;
-
-            background:
-                rgba(15, 15, 15, 0.92);
-
-            border:
-                1px solid
-                rgba(255, 255, 255, 0.15);
-
-            border-radius: 8px;
-
-            box-shadow:
-                0 4px 20px
-                rgba(0, 0, 0, 0.45);
-
-            user-select: none;
+            border-bottom: 1px solid #333;
         }
 
         #title {
-
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
-
-            margin-bottom: 4px;
         }
 
         #subtitle {
+            margin-top: 5px;
 
             color: #999;
 
-            font-size: 12px;
+            font-size: 13px;
         }
-
-        /*
-         * Informations en bas
-         */
 
         #status {
+            width: 100%;
 
-            position: absolute;
+            padding: 10px 20px;
 
-            left: 15px;
-            bottom: 15px;
+            background: #1d1d1d;
 
-            z-index: 1000;
-
-            padding: 8px 12px;
-
-            background:
-                rgba(15, 15, 15, 0.92);
-
-            border:
-                1px solid
-                rgba(255, 255, 255, 0.12);
-
-            border-radius: 6px;
+            border-bottom: 1px solid #333;
 
             color: #aaa;
 
-            font-size: 12px;
-
-            pointer-events: none;
+            font-size: 13px;
         }
 
-        /*
-         * Coordonnées
-         */
+        #test-container {
+            margin-top: 30px;
 
-        #coordinates {
+            width: min(1000px, 90vw);
+            height: min(1000px, 70vh);
 
-            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
 
-            right: 15px;
-            bottom: 15px;
-
-            z-index: 1000;
-
-            padding: 8px 12px;
-
-            background:
-                rgba(15, 15, 15, 0.92);
-
-            border:
-                1px solid
-                rgba(255, 255, 255, 0.12);
-
-            border-radius: 6px;
-
-            color: #aaa;
-
-            font-size: 12px;
-
-            pointer-events: none;
-        }
-
-        /*
-         * Apparence des tuiles
-         */
-
-        .wplace-tile {
-
-            image-rendering: auto;
+            overflow: auto;
 
             background: #222;
 
-            border: none;
+            border: 2px solid #444;
         }
 
-        /*
-         * Attribution
-         */
+        #wplace-tile {
+            display: block;
 
-        .leaflet-control-attribution {
+            width: 1000px;
+            height: 1000px;
 
-            background:
-                rgba(0, 0, 0, 0.65) !important;
+            max-width: none;
 
-            color: #aaa;
+            background: #333;
 
+            image-rendering: auto;
         }
 
-        .leaflet-control-attribution a {
+        #error {
+            display: none;
 
-            color: #ddd;
+            margin-top: 20px;
 
+            width: min(900px, 90vw);
+
+            padding: 15px;
+
+            background: #351515;
+
+            border: 1px solid #7a3333;
+
+            color: #ffaaaa;
+
+            font-family: monospace;
+
+            white-space: pre-wrap;
+        }
+
+        #success {
+            display: none;
+
+            margin-top: 20px;
+
+            width: min(900px, 90vw);
+
+            padding: 15px;
+
+            background: #15351c;
+
+            border: 1px solid #347a42;
+
+            color: #aaffb4;
+
+            font-family: monospace;
+        }
+
+        #url {
+            margin-top: 10px;
+
+            width: min(900px, 90vw);
+
+            color: #777;
+
+            font-size: 12px;
+
+            word-break: break-all;
         }
 
     </style>
-
 </head>
 
 
 <body>
 
 
-    <!-- Carte -->
-
-    <div id="map"></div>
-
-
-    <!-- Interface -->
-
-    <div id="topbar">
+    <div id="header">
 
         <div id="title">
             WPlace Alliance
         </div>
 
         <div id="subtitle">
-            Carte tactique de l'alliance
+            Test direct d'une tuile WPlace
         </div>
 
     </div>
 
 
     <div id="status">
-        Initialisation de la carte...
+        Chargement d'une tuile WPlace...
     </div>
 
 
-    <div id="coordinates">
-        X: — &nbsp;&nbsp; Y: —
+    <div id="test-container">
+
+        <img
+            id="wplace-tile"
+            alt="Tuile WPlace"
+        >
+
     </div>
 
 
-    <!-- Leaflet -->
+    <div id="success">
 
-    <script
-        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        crossorigin="">
-    </script>
+        TUile WPlace chargée correctement.
+
+        Le serveur WPlace répond et le navigateur peut afficher
+        directement une tuile PNG.
+
+    </div>
+
+
+    <div id="error">
+
+        ERREUR DE CHARGEMENT
+
+    </div>
+
+
+    <div id="url"></div>
 
 
     <script>
 
         /*
          * ============================================================
-         * WPLACE ALLIANCE
-         * Carte WPlace
+         * TEST DIRECT WPLACE
          * ============================================================
          *
-         * WPlace :
+         * Cette tuile est un exemple fourni dans la documentation
+         * du protocole WPlace.
          *
-         * - 2048 × 2048 tuiles
-         * - chaque tuile = 1000 × 1000 pixels
+         * Tile X = 1672
+         * Tile Y = 892
          *
-         * Les tuiles sont accessibles via :
-         *
-         * https://backend.wplace.live/files/s0/tiles/X/Y.png
+         * Taille :
+         * 1000 × 1000 pixels
          *
          * ============================================================
          */
 
 
-        /*
-         * ------------------------------------------------------------
-         * CONSTANTES WPLACE
-         * ------------------------------------------------------------
-         */
+        const tileX = 1672;
 
-        const TILE_SIZE = 1000;
+        const tileY = 892;
 
-        const TILE_COUNT = 2048;
 
-        const WORLD_SIZE =
-            TILE_SIZE * TILE_COUNT;
+        const tileURL =
+            "https://backend.wplace.live" +
+            "/files/s0/tiles/" +
+            tileX +
+            "/" +
+            tileY +
+            ".png";
 
 
-        /*
-         * ------------------------------------------------------------
-         * CRS PERSONNALISÉ
-         * ------------------------------------------------------------
-         *
-         * On utilise CRS.Simple car WPlace est une grille.
-         *
-         * On modifie son échelle pour que :
-         *
-         * zoom 0  = 1 tuile
-         * zoom 1  = 2 × 2 tuiles
-         * ...
-         * zoom 11 = 2048 × 2048 tuiles
-         *
-         * 2^11 = 2048
-         */
-
-        const WPlaceCRS = L.extend(
-            {},
-            L.CRS.Simple
-        );
-
-
-        WPlaceCRS.scale = function (zoom) {
-
-            return TILE_SIZE *
-                Math.pow(2, zoom);
-
-        };
-
-
-        WPlaceCRS.zoom = function (scale) {
-
-            return Math.log(
-                scale / TILE_SIZE
-            ) / Math.LN2;
-
-        };
-
-
-        /*
-         * ------------------------------------------------------------
-         * CARTE
-         * ------------------------------------------------------------
-         */
-
-        const map = L.map(
-            "map",
-            {
-
-                crs: WPlaceCRS,
-
-                minZoom: 0,
-
-                maxZoom: 11,
-
-                zoomControl: true,
-
-                attributionControl: true,
-
-                worldCopyJump: false
-
-            }
-        );
-
-
-        /*
-         * ------------------------------------------------------------
-         * COUCHE DE TUILES WPLACE
-         * ------------------------------------------------------------
-         *
-         * On utilise GridLayer plutôt que TileLayer.
-         *
-         * Cela nous permet de contrôler directement :
-         *
-         *     coords.x
-         *     coords.y
-         *
-         * et donc de les envoyer à WPlace.
-         */
-
-        const WPlaceLayer =
-            L.GridLayer.extend({
-
-                createTile: function (
-                    coords,
-                    done
-                ) {
-
-                    const tile =
-                        document.createElement(
-                            "img"
-                        );
-
-
-                    /*
-                     * Taille physique de la tuile.
-                     */
-
-                    const size =
-                        this.getTileSize();
-
-
-                    tile.width =
-                        size.x;
-
-                    tile.height =
-                        size.y;
-
-
-                    tile.className =
-                        "wplace-tile";
-
-
-                    /*
-                     * Pas de tuile négative.
-                     */
-
-                    if (
-                        coords.x < 0 ||
-                        coords.y < 0 ||
-                        coords.x >= TILE_COUNT ||
-                        coords.y >= TILE_COUNT
-                    ) {
-
-                        tile.style.visibility =
-                            "hidden";
-
-                        setTimeout(
-                            function () {
-
-                                done(
-                                    null,
-                                    tile
-                                );
-
-                            },
-                            0
-                        );
-
-                        return tile;
-
-                    }
-
-
-                    /*
-                     * URL officielle de la tuile.
-                     */
-
-                    const url =
-                        "https://backend.wplace.live" +
-                        "/files/s0/tiles/" +
-                        coords.x +
-                        "/" +
-                        coords.y +
-                        ".png";
-
-
-                    /*
-                     * Quand l'image est chargée.
-                     */
-
-                    tile.onload =
-                        function () {
-
-                            done(
-                                null,
-                                tile
-                            );
-
-                            updateStatus();
-
-                        };
-
-
-                    /*
-                     * En cas d'erreur.
-                     */
-
-                    tile.onerror =
-                        function (error) {
-
-                            console.error(
-                                "Erreur tuile WPlace :",
-                                coords.x,
-                                coords.y,
-                                error
-                            );
-
-                            tile.style.background =
-                                "#222";
-
-                            done(
-                                null,
-                                tile
-                            );
-
-                            updateStatus();
-
-                        };
-
-
-                    /*
-                     * Chargement.
-                     */
-
-                    tile.src = url;
-
-
-                    return tile;
-
-                },
-
-                tileSize: TILE_SIZE,
-
-                minZoom: 0,
-
-                maxZoom: 11,
-
-                noWrap: true,
-
-                updateWhenIdle: true,
-
-                keepBuffer: 2
-
-            });
-
-
-        const wplace =
-            new WPlaceLayer();
-
-
-        wplace.addTo(map);
-
-
-        /*
-         * ------------------------------------------------------------
-         * LIMITES DE LA CARTE
-         * ------------------------------------------------------------
-         *
-         * Notre espace de coordonnées :
-         *
-         * X = 0 → 2048
-         * Y = 0 → 2048
-         */
-
-        const worldBounds =
-            L.latLngBounds(
-                [
-                    0,
-                    0
-                ],
-                [
-                    TILE_COUNT,
-                    TILE_COUNT
-                ]
+        const image =
+            document.getElementById(
+                "wplace-tile"
             );
 
-
-        map.setMaxBounds(
-            worldBounds
-        );
-
-
-        /*
-         * ------------------------------------------------------------
-         * POSITION INITIALE
-         * ------------------------------------------------------------
-         */
-
-        map.fitBounds(
-            worldBounds
-        );
-
-
-        /*
-         * ------------------------------------------------------------
-         * STATUS
-         * ------------------------------------------------------------
-         */
 
         const status =
             document.getElementById(
@@ -558,74 +255,106 @@
             );
 
 
-        function updateStatus() {
-
-            status.textContent =
-                "Carte WPlace active";
-
-        }
-
-
-        /*
-         * ------------------------------------------------------------
-         * COORDONNÉES DE LA SOURIS
-         * ------------------------------------------------------------
-         */
-
-        const coordinates =
+        const success =
             document.getElementById(
-                "coordinates"
+                "success"
             );
 
 
-        map.on(
-            "mousemove",
-            function (event) {
-
-                const x =
-                    Math.floor(
-                        event.latlng.lng
-                    );
-
-                const y =
-                    Math.floor(
-                        event.latlng.lat
-                    );
+        const error =
+            document.getElementById(
+                "error"
+            );
 
 
-                coordinates.textContent =
-                    "X: " +
-                    x +
-                    "   Y: " +
-                    y;
-
-            }
-        );
+        const url =
+            document.getElementById(
+                "url"
+            );
 
 
         /*
-         * ------------------------------------------------------------
-         * DEBUG
-         * ------------------------------------------------------------
+         * Affichage de l'URL testée.
+         */
+
+        url.textContent =
+            tileURL;
+
+
+        /*
+         * Succès.
+         */
+
+        image.onload =
+            function () {
+
+                console.log(
+                    "Tuile WPlace chargée :",
+                    tileURL
+                );
+
+
+                console.log(
+                    "Dimensions naturelles :",
+                    image.naturalWidth,
+                    "×",
+                    image.naturalHeight
+                );
+
+
+                status.textContent =
+                    "Tuile WPlace chargée";
+
+
+                success.style.display =
+                    "block";
+
+            };
+
+
+        /*
+         * Erreur.
+         */
+
+        image.onerror =
+            function (event) {
+
+                console.error(
+                    "Impossible de charger la tuile WPlace",
+                    event
+                );
+
+
+                status.textContent =
+                    "Erreur de chargement de la tuile";
+
+
+                error.style.display =
+                    "block";
+
+
+                error.textContent =
+                    "Impossible de charger :\n\n" +
+                    tileURL +
+                    "\n\n" +
+                    "Consulte F12 → Réseau (Network) " +
+                    "pour voir la requête PNG.";
+
+            };
+
+
+        /*
+         * Lancement.
          */
 
         console.log(
-            "WPlace Alliance initialisé"
+            "Test WPlace :",
+            tileURL
         );
 
-        console.log(
-            "Taille du monde :",
-            TILE_COUNT,
-            "×",
-            TILE_COUNT
-        );
 
-        console.log(
-            "Taille d'une tuile :",
-            TILE_SIZE,
-            "×",
-            TILE_SIZE
-        );
+        image.src =
+            tileURL;
 
 
     </script>
