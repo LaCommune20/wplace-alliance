@@ -13,20 +13,23 @@
     <title>WPlace Alliance</title>
 
 
-    <!-- ========================================================= -->
-    <!-- LEAFLET                                                   -->
-    <!-- ========================================================= -->
+    <!-- =========================================================
+         MAPLIBRE
+         ========================================================= -->
 
     <link
+        href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css"
         rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        crossorigin=""
     >
 
+    <script
+        src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js">
+    </script>
 
-    <!-- ========================================================= -->
-    <!-- STYLE                                                     -->
-    <!-- ========================================================= -->
+
+    <!-- =========================================================
+         STYLE
+         ========================================================= -->
 
     <style>
 
@@ -61,16 +64,14 @@
             width: 100%;
             height: 100%;
 
-            background: #202020;
-
         }
 
 
-        /* ===================================================== */
-        /* BARRE SUPÉRIEURE                                      */
-        /* ===================================================== */
+        /* =====================================================
+           PANNEAU PRINCIPAL
+           ===================================================== */
 
-        #topbar {
+        #panel {
 
             position: absolute;
 
@@ -79,19 +80,21 @@
 
             z-index: 1000;
 
-            padding: 12px 18px;
+            min-width: 245px;
+
+            padding: 14px 17px;
 
             background:
-                rgba(15, 15, 15, 0.92);
+                rgba(15, 15, 15, 0.93);
 
             border:
                 1px solid
                 rgba(255, 255, 255, 0.15);
 
-            border-radius: 8px;
+            border-radius: 9px;
 
             box-shadow:
-                0 4px 20px
+                0 5px 25px
                 rgba(0, 0, 0, 0.45);
 
             color: white;
@@ -107,6 +110,8 @@
 
             font-weight: bold;
 
+            letter-spacing: 0.2px;
+
         }
 
 
@@ -121,9 +126,32 @@
         }
 
 
-        /* ===================================================== */
-        /* STATUS                                                  */
-        /* ===================================================== */
+        #info {
+
+            margin-top: 12px;
+
+            padding-top: 10px;
+
+            border-top:
+                1px solid
+                rgba(255, 255, 255, 0.1);
+
+            color: #aaa;
+
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size: 11px;
+
+            line-height: 1.6;
+
+        }
+
+
+        /* =====================================================
+           STATUS
+           ===================================================== */
 
         #status {
 
@@ -137,7 +165,7 @@
             padding: 8px 12px;
 
             background:
-                rgba(15, 15, 15, 0.92);
+                rgba(15, 15, 15, 0.93);
 
             border:
                 1px solid
@@ -147,16 +175,20 @@
 
             color: #aaa;
 
-            font-size: 12px;
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size: 11px;
 
             pointer-events: none;
 
         }
 
 
-        /* ===================================================== */
-        /* COORDONNÉES                                             */
-        /* ===================================================== */
+        /* =====================================================
+           COORDONNÉES
+           ===================================================== */
 
         #coordinates {
 
@@ -170,7 +202,7 @@
             padding: 8px 12px;
 
             background:
-                rgba(15, 15, 15, 0.92);
+                rgba(15, 15, 15, 0.93);
 
             border:
                 1px solid
@@ -180,47 +212,50 @@
 
             color: #aaa;
 
-            font-size: 12px;
+            font-family:
+                Consolas,
+                monospace;
+
+            font-size: 11px;
 
             pointer-events: none;
 
         }
 
 
-        /* ===================================================== */
-        /* TUILES                                                  */
-        /* ===================================================== */
+        /* =====================================================
+           MAPLIBRE
+           ===================================================== */
 
-        .wplace-tile {
-
-            display: block;
-
-            background: #222;
-
-            border: none;
-
-            image-rendering: auto;
-
-        }
-
-
-        /* ===================================================== */
-        /* LEAFLET                                                  */
-        /* ===================================================== */
-
-        .leaflet-control-attribution {
+        .maplibregl-ctrl-attrib {
 
             background:
-                rgba(0, 0, 0, 0.7) !important;
+                rgba(0, 0, 0, 0.65) !important;
 
             color: #aaa;
 
         }
 
 
-        .leaflet-control-attribution a {
+        .maplibregl-ctrl-attrib a {
 
             color: #ddd;
+
+        }
+
+
+        .maplibregl-ctrl-group {
+
+            background:
+                rgba(20, 20, 20, 0.9) !important;
+
+        }
+
+
+        .maplibregl-ctrl-group button {
+
+            filter:
+                invert(1);
 
         }
 
@@ -232,18 +267,18 @@
 <body>
 
 
-    <!-- ========================================================= -->
-    <!-- CARTE                                                     -->
-    <!-- ========================================================= -->
+    <!-- =========================================================
+         CARTE
+         ========================================================= -->
 
     <div id="map"></div>
 
 
-    <!-- ========================================================= -->
-    <!-- INTERFACE                                                 -->
-    <!-- ========================================================= -->
+    <!-- =========================================================
+         INTERFACE
+         ========================================================= -->
 
-    <div id="topbar">
+    <div id="panel">
 
         <div id="title">
             WPlace Alliance
@@ -253,41 +288,55 @@
             Carte tactique de l'alliance
         </div>
 
+        <div id="info">
+
+            Zoom :
+            <span id="zoom">
+                —
+            </span>
+
+            <br>
+
+            Tuile WPlace :
+            <span id="tile">
+                —
+            </span>
+
+            <br>
+
+            Tuiles chargées :
+            <span id="tiles">
+                0
+            </span>
+
+        </div>
+
     </div>
 
 
     <div id="status">
-        Initialisation de la carte...
+        Initialisation...
     </div>
 
 
     <div id="coordinates">
-        X: — &nbsp;&nbsp; Y: —
+        X: — &nbsp; Y: —
     </div>
 
 
-    <!-- ========================================================= -->
-    <!-- LEAFLET                                                   -->
-    <!-- ========================================================= -->
-
-    <script
-        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        crossorigin="">
-    </script>
-
-
-    <!-- ========================================================= -->
-    <!-- WPLACE ALLIANCE                                           -->
-    <!-- ========================================================= -->
+    <!-- =========================================================
+         JAVASCRIPT
+         ========================================================= -->
 
     <script>
+
 
         /*
          * =========================================================
          *
          * WPLACE ALLIANCE
          *
-         * Carte WPlace
+         * Première vraie carte
          *
          * =========================================================
          */
@@ -298,562 +347,170 @@
          * CONSTANTES WPLACE
          * ---------------------------------------------------------
          *
-         * Une tuile WPlace :
-         *
-         * 1000 × 1000 pixels
-         *
-         * La carte possède :
+         * Le monde WPlace :
          *
          * 2048 × 2048 tuiles
          *
-         */
-
-
-        const WPLACE_TILE_SIZE = 1000;
-
-        const WPLACE_TILE_COUNT = 2048;
-
-
-        /*
-         * ---------------------------------------------------------
-         * NIVEAU NATIF
-         * ---------------------------------------------------------
+         * Chaque tuile :
+         *
+         * 1000 × 1000 pixels
+         *
+         * Le niveau natif :
+         *
+         * 11
+         *
+         * car :
          *
          * 2^11 = 2048
          *
-         * Donc le niveau 11 correspond à la grille native.
          */
 
 
-        const WPLACE_NATIVE_ZOOM = 11;
+        const WPLACE_ZOOM = 11;
+
+        const WPLACE_TILES = 2048;
+
+        const WPLACE_TILE_SIZE = 1000;
 
 
         /*
          * ---------------------------------------------------------
-         * WORLD SIZE
+         * COORDONNÉES INITIALES
          * ---------------------------------------------------------
          *
-         * 2048 × 1000
+         * Toulon
          *
          */
 
 
-        const WPLACE_WORLD_SIZE =
-            WPLACE_TILE_SIZE *
-            WPLACE_TILE_COUNT;
+        const INITIAL_LONGITUDE =
+            5.93;
+
+
+        const INITIAL_LATITUDE =
+            43.12;
+
+
+        const INITIAL_ZOOM =
+            7;
 
 
         /*
          * ---------------------------------------------------------
-         * ÉLÉMENTS INTERFACE
+         * CONVERSION
+         * ---------------------------------------------------------
+         *
+         * WPlace utilise la formule Slippy Map standard.
+         *
          * ---------------------------------------------------------
          */
 
 
-        const statusElement =
-            document.getElementById(
-                "status"
-            );
+        function longitudeToTileX(
+            longitude
+        ) {
 
+            const n =
+                WPLACE_TILES;
 
-        const coordinatesElement =
-            document.getElementById(
-                "coordinates"
-            );
 
+            return (
+                (longitude + 180) /
+                360
+            ) * n;
 
-        /*
-         * ---------------------------------------------------------
-         * CARTE
-         * ---------------------------------------------------------
-         *
-         * CRS.Simple est utilisé avec une grille exprimée
-         * directement en pixels.
-         *
-         */
+        }
 
 
-        const map =
-            L.map(
-                "map",
-                {
+        function latitudeToTileY(
+            latitude
+        ) {
 
-                    crs: L.CRS.Simple,
+            const latRad =
+                latitude *
+                Math.PI /
+                180;
 
-                    minZoom: 0,
 
-                    maxZoom: WPLACE_NATIVE_ZOOM,
+            const n =
+                WPLACE_TILES;
 
-                    zoomControl: true,
 
-                    attributionControl: true,
-
-                    worldCopyJump: false
-
-                }
-            );
-
-
-        /*
-         * ---------------------------------------------------------
-         * COUCHE WPLACE
-         * ---------------------------------------------------------
-         *
-         * GridLayer permet de contrôler directement :
-         *
-         * x
-         * y
-         * zoom
-         *
-         */
-
-
-        const WPlaceGrid =
-            L.GridLayer.extend({
-
-                tileSize:
-                    WPLACE_TILE_SIZE,
-
-
-                minZoom: 0,
-
-                maxZoom:
-                    WPLACE_NATIVE_ZOOM,
-
-
-                noWrap: true,
-
-
-                keepBuffer: 1,
-
-
-                updateWhenIdle: true,
-
-
-                updateWhenZooming: false,
-
-
-                createTile:
-                    function (
-                        coords,
-                        done
-                    ) {
-
-
-                        /*
-                         * -----------------------------------------
-                         * Création de l'image
-                         * -----------------------------------------
-                         */
-
-
-                        const tile =
-                            document.createElement(
-                                "img"
-                            );
-
-
-                        tile.className =
-                            "wplace-tile";
-
-
-                        tile.width =
-                            WPLACE_TILE_SIZE;
-
-
-                        tile.height =
-                            WPLACE_TILE_SIZE;
-
-
-                        tile.alt = "";
-
-
-                        /*
-                         * -----------------------------------------
-                         * Calcul du zoom WPlace
-                         * -----------------------------------------
-                         *
-                         * Leaflet peut demander plusieurs niveaux.
-                         *
-                         * Notre niveau natif est 11.
-                         *
-                         */
-
-
-                        const zoom =
-                            coords.z;
-
-
-                        /*
-                         * -----------------------------------------
-                         * Conversion des coordonnées
-                         * -----------------------------------------
-                         *
-                         * À zoom 11 :
-                         *
-                         * 2048 × 2048
-                         *
-                         *
-                         * À un zoom inférieur :
-                         *
-                         * les coordonnées représentent des
-                         * groupes de tuiles.
-                         *
-                         */
-
-
-                        let x =
-                            coords.x;
-
-                        let y =
-                            coords.y;
-
-
-                        /*
-                         * -----------------------------------------
-                         * Limites
-                         * -----------------------------------------
-                         */
-
-
-                        const tilesAtZoom =
-                            Math.pow(
-                                2,
-                                zoom
-                            );
-
-
-                        if (
-                            x < 0 ||
-                            y < 0 ||
-                            x >= tilesAtZoom ||
-                            y >= tilesAtZoom
-                        ) {
-
-                            tile.style.visibility =
-                                "hidden";
-
-
-                            setTimeout(
-                                function () {
-
-                                    done(
-                                        null,
-                                        tile
-                                    );
-
-                                },
-                                0
-                            );
-
-
-                            return tile;
-
-                        }
-
-
-                        /*
-                         * -----------------------------------------
-                         * Conversion vers la grille native
-                         * -----------------------------------------
-                         *
-                         * Exemple :
-                         *
-                         * zoom 11 :
-                         *
-                         * 1 → 1
-                         *
-                         * zoom 10 :
-                         *
-                         * 1 → 2
-                         *
-                         * zoom 9 :
-                         *
-                         * 1 → 4
-                         *
-                         */
-
-
-                        const factor =
-                            Math.pow(
-                                2,
-                                WPLACE_NATIVE_ZOOM -
-                                zoom
-                            );
-
-
-                        /*
-                         * Tuile native correspondante.
-                         */
-
-
-                        const nativeX =
-                            x * factor;
-
-
-                        const nativeY =
-                            y * factor;
-
-
-                        /*
-                         * -----------------------------------------
-                         * Pour les niveaux inférieurs au niveau
-                         * natif, on doit pouvoir représenter
-                         * plusieurs tuiles WPlace dans une même
-                         * tuile Leaflet.
-                         *
-                         * Pour l'instant on charge la première.
-                         *
-                         * Les niveaux de zoom intermédiaires seront
-                         * améliorés ensuite avec une vraie couche
-                         * de mosaïque.
-                         * -----------------------------------------
-                         */
-
-
-                        const finalX =
-                            Math.floor(
-                                nativeX
-                            );
-
-
-                        const finalY =
-                            Math.floor(
-                                nativeY
-                            );
-
-
-                        /*
-                         * -----------------------------------------
-                         * URL WPlace
-                         * -----------------------------------------
-                         */
-
-
-                        const url =
-                            "https://backend.wplace.live" +
-                            "/files/s0/tiles/" +
-                            finalX +
-                            "/" +
-                            finalY +
-                            ".png";
-
-
-                        /*
-                         * -----------------------------------------
-                         * Chargement
-                         * -----------------------------------------
-                         */
-
-
-                        tile.onload =
-                            function () {
-
-                                done(
-                                    null,
-                                    tile
-                                );
-
-                                updateStatus();
-
-                            };
-
-
-                        /*
-                         * -----------------------------------------
-                         * Erreur
-                         * -----------------------------------------
-                         */
-
-
-                        tile.onerror =
-                            function () {
-
-                                console.warn(
-                                    "Tuile WPlace indisponible :",
-                                    finalX,
-                                    finalY
-                                );
-
-
-                                tile.style.background =
-                                    "#222";
-
-
-                                done(
-                                    null,
-                                    tile
-                                );
-
-                            };
-
-
-                        /*
-                         * -----------------------------------------
-                         * URL
-                         * -----------------------------------------
-                         */
-
-
-                        tile.src =
-                            url;
-
-
-                        return tile;
-
-                    }
-
-            });
-
-
-        /*
-         * ---------------------------------------------------------
-         * AJOUT DE LA COUCHE
-         * ---------------------------------------------------------
-         */
-
-
-        const wplaceLayer =
-            new WPlaceGrid();
-
-
-        wplaceLayer.addTo(
-            map
-        );
-
-
-        /*
-         * ---------------------------------------------------------
-         * MONDE
-         * ---------------------------------------------------------
-         */
-
-
-        const worldBounds =
-            L.latLngBounds(
-                [
-                    0,
-                    0
-                ],
-                [
-                    WPLACE_WORLD_SIZE,
-                    WPLACE_WORLD_SIZE
-                ]
-            );
-
-
-        map.setMaxBounds(
-            worldBounds
-        );
-
-
-        /*
-         * ---------------------------------------------------------
-         * VUE INITIALE
-         * ---------------------------------------------------------
-         *
-         * On démarre volontairement à un zoom raisonnable.
-         *
-         * Pas de chargement de milliers de tuiles.
-         *
-         */
-
-
-        map.fitBounds(
-            worldBounds
-        );
-
-
-        /*
-         * ---------------------------------------------------------
-         * STATUS
-         * ---------------------------------------------------------
-         */
-
-
-        function updateStatus() {
-
-            const zoom =
-                map.getZoom();
-
-
-            statusElement.textContent =
-                "Carte WPlace active • Zoom " +
-                zoom.toFixed(1);
+            return (
+                (
+                    1 -
+                    Math.asinh(
+                        Math.tan(
+                            latRad
+                        )
+                    ) /
+                    Math.PI
+                ) /
+                2
+            ) * n;
 
         }
 
 
         /*
          * ---------------------------------------------------------
-         * DÉPLACEMENT
+         * CONVERSION INVERSE
          * ---------------------------------------------------------
          */
 
 
-        map.on(
-            "move",
-            function () {
+        function tileXToLongitude(
+            x
+        ) {
 
-                updateStatus();
+            return (
+                x /
+                WPLACE_TILES
+            ) * 360 - 180;
 
-            }
-        );
-
-
-        map.on(
-            "zoom",
-            function () {
-
-                updateStatus();
-
-            }
-        );
+        }
 
 
-        /*
-         * ---------------------------------------------------------
-         * COORDONNÉES
-         * ---------------------------------------------------------
-         */
+        function tileYToLatitude(
+            y
+        ) {
+
+            const n =
+                WPLACE_TILES;
 
 
-        map.on(
-            "mousemove",
-            function (event) {
+            const latRad =
+                Math.atan(
+                    Math.sinh(
+                        Math.PI *
+                        (
+                            1 -
+                            2 *
+                            y /
+                            n
+                        )
+                    )
+                );
 
 
-                const x =
-                    Math.floor(
-                        event.latlng.lng
-                    );
+            return (
+                latRad *
+                180 /
+                Math.PI
+            );
 
-
-                const y =
-                    Math.floor(
-                        event.latlng.lat
-                    );
-
-
-                coordinatesElement.textContent =
-                    "X: " +
-                    x +
-                    "   Y: " +
-                    y;
-
-            }
-        );
+        }
 
 
         /*
          * ---------------------------------------------------------
-         * INITIALISATION
+         * VÉRIFICATION DE LA CONVERSION
          * ---------------------------------------------------------
          */
 
 
         console.log(
-            "================================="
+            "========================================"
         );
 
 
@@ -863,40 +520,442 @@
 
 
         console.log(
-            "Carte initialisée"
+            "Test de conversion WPlace"
+        );
+
+
+        const testX =
+            longitudeToTileX(
+                INITIAL_LONGITUDE
+            );
+
+
+        const testY =
+            latitudeToTileY(
+                INITIAL_LATITUDE
+            );
+
+
+        console.log(
+            "Toulon → tuile :",
+            Math.floor(testX),
+            Math.floor(testY)
         );
 
 
         console.log(
-            "Taille d'une tuile :",
-            WPLACE_TILE_SIZE
+            "Toulon → coordonnées exactes :",
+            testX,
+            testY
         );
 
 
         console.log(
-            "Nombre de tuiles :",
-            WPLACE_TILE_COUNT
+            "Tuile → longitude :",
+            tileXToLongitude(
+                Math.floor(testX)
+            )
         );
 
 
         console.log(
-            "Zoom natif :",
-            WPLACE_NATIVE_ZOOM
+            "Tuile → latitude :",
+            tileYToLatitude(
+                Math.floor(testY)
+            )
         );
 
 
         console.log(
-            "Taille du monde :",
-            WPLACE_WORLD_SIZE
+            "========================================"
         );
 
 
-        console.log(
-            "================================="
+        /*
+         * ---------------------------------------------------------
+         * STYLE MAPLIBRE
+         * ---------------------------------------------------------
+         *
+         * OpenFreeMap Liberty.
+         *
+         * Aucun token nécessaire.
+         *
+         */
+
+
+        const map =
+            new maplibregl.Map({
+
+                container:
+                    "map",
+
+                style:
+                    "https://tiles.openfreemap.org/styles/liberty",
+
+                center:
+                    [
+                        INITIAL_LONGITUDE,
+                        INITIAL_LATITUDE
+                    ],
+
+                zoom:
+                    INITIAL_ZOOM,
+
+                minZoom:
+                    0,
+
+                maxZoom:
+                    13,
+
+                attributionControl:
+                    true
+
+            });
+
+
+        /*
+         * ---------------------------------------------------------
+         * CONTRÔLES
+         * ---------------------------------------------------------
+         */
+
+
+        map.addControl(
+            new maplibregl.NavigationControl(),
+            "top-right"
         );
 
 
-        updateStatus();
+        /*
+         * ---------------------------------------------------------
+         * CHARGEMENT DE LA CARTE
+         * ---------------------------------------------------------
+         */
+
+
+        map.on(
+            "load",
+            function () {
+
+
+                console.log(
+                    "Fond OpenFreeMap chargé"
+                );
+
+
+                /*
+                 * -------------------------------------------------
+                 * SOURCE WPLACE
+                 * -------------------------------------------------
+                 *
+                 * Les tuiles natives sont au zoom 11.
+                 *
+                 * Nous les affichons comme couche raster.
+                 *
+                 */
+
+
+                map.addSource(
+                    "wplace",
+                    {
+
+                        type:
+                            "raster",
+
+                        tiles:
+                            [
+                                "https://backend.wplace.live/files/s0/tiles/{x}/{y}.png"
+                            ],
+
+                        tileSize:
+                            512,
+
+                        minzoom:
+                            WPLACE_ZOOM,
+
+                        maxzoom:
+                            WPLACE_ZOOM,
+
+                        attribution:
+                            "WPlace"
+
+                    }
+                );
+
+
+                /*
+                 * -------------------------------------------------
+                 * COUCHE WPLACE
+                 * -------------------------------------------------
+                 */
+
+
+                map.addLayer({
+
+                    id:
+                        "wplace-layer",
+
+                    type:
+                        "raster",
+
+                    source:
+                        "wplace",
+
+                    minzoom:
+                        WPLACE_ZOOM,
+
+                    maxzoom:
+                        13,
+
+                    paint:
+                        {
+
+                            "raster-opacity":
+                                1.0,
+
+                            "raster-fade-duration":
+                                0
+
+                        }
+
+                });
+
+
+                /*
+                 * -------------------------------------------------
+                 * STATUS
+                 * -------------------------------------------------
+                 */
+
+
+                document
+                    .getElementById(
+                        "status"
+                    )
+                    .textContent =
+                    "Carte prête — zoome jusqu'au niveau 11";
+
+
+                updateInterface();
+
+
+            }
+        );
+
+
+        /*
+         * ---------------------------------------------------------
+         * SOURCES / ERREURS
+         * ---------------------------------------------------------
+         */
+
+
+        map.on(
+            "error",
+            function (event) {
+
+                console.error(
+                    "MapLibre :",
+                    event
+                );
+
+            }
+        );
+
+
+        /*
+         * ---------------------------------------------------------
+         * INTERFACE
+         * ---------------------------------------------------------
+         */
+
+
+        function updateInterface() {
+
+
+            const zoom =
+                map.getZoom();
+
+
+            document
+                .getElementById(
+                    "zoom"
+                )
+                .textContent =
+                zoom.toFixed(2);
+
+
+            /*
+             * Position actuelle
+             */
+
+
+            const center =
+                map.getCenter();
+
+
+            const x =
+                longitudeToTileX(
+                    center.lng
+                );
+
+
+            const y =
+                latitudeToTileY(
+                    center.lat
+                );
+
+
+            document
+                .getElementById(
+                    "tile"
+                )
+                .textContent =
+                Math.floor(x) +
+                " / " +
+                Math.floor(y);
+
+
+        }
+
+
+        /*
+         * ---------------------------------------------------------
+         * SOURIS
+         * ---------------------------------------------------------
+         */
+
+
+        map.on(
+            "mousemove",
+            function (event) {
+
+
+                const longitude =
+                    event.lngLat.lng;
+
+
+                const latitude =
+                    event.lngLat.lat;
+
+
+                const x =
+                    longitudeToTileX(
+                        longitude
+                    );
+
+
+                const y =
+                    latitudeToTileY(
+                        latitude
+                    );
+
+
+                const tileX =
+                    Math.floor(x);
+
+
+                const tileY =
+                    Math.floor(y);
+
+
+                const pixelX =
+                    Math.floor(
+                        (
+                            x -
+                            tileX
+                        ) *
+                        WPLACE_TILE_SIZE
+                    );
+
+
+                const pixelY =
+                    Math.floor(
+                        (
+                            y -
+                            tileY
+                        ) *
+                        WPLACE_TILE_SIZE
+                    );
+
+
+                document
+                    .getElementById(
+                        "coordinates"
+                    )
+                    .textContent =
+                    "Tuile " +
+                    tileX +
+                    " / " +
+                    tileY +
+                    "   Pixel " +
+                    pixelX +
+                    " / " +
+                    pixelY;
+
+
+            }
+        );
+
+
+        /*
+         * ---------------------------------------------------------
+         * DÉPLACEMENT / ZOOM
+         * ---------------------------------------------------------
+         */
+
+
+        map.on(
+            "move",
+            function () {
+
+                updateInterface();
+
+            }
+        );
+
+
+        map.on(
+            "zoom",
+            function () {
+
+                updateInterface();
+
+
+                const zoom =
+                    map.getZoom();
+
+
+                if (
+                    zoom <
+                    WPLACE_ZOOM
+                ) {
+
+                    document
+                        .getElementById(
+                            "status"
+                        )
+                        .textContent =
+                        "Fond géographique — zoom " +
+                        zoom.toFixed(1) +
+                        " / 11";
+
+
+                } else {
+
+                    document
+                        .getElementById(
+                            "status"
+                        )
+                        .textContent =
+                        "Pixels WPlace actifs — zoom " +
+                        zoom.toFixed(1);
+
+                }
+
+            }
+        );
+
 
     </script>
 
