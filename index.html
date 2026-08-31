@@ -1,9 +1,14 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
+
     <meta charset="UTF-8">
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>WPlace Alliance</title>
 
@@ -11,11 +16,11 @@
     <link
         rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIINfQ3T3m5eM0rQbZ9v6Ff7Y0Q9E4f5x0="
         crossorigin=""
     >
 
     <style>
+
         * {
             box-sizing: border-box;
         }
@@ -24,152 +29,608 @@
         body {
             margin: 0;
             padding: 0;
+
             width: 100%;
             height: 100%;
+
             overflow: hidden;
+
             background: #111;
-            font-family: Arial, sans-serif;
+            color: white;
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
         }
 
         #map {
             width: 100%;
             height: 100%;
+            background: #202020;
         }
 
-        #title {
+        /*
+         * Interface supérieure
+         */
+
+        #topbar {
+
             position: absolute;
-            z-index: 1000;
+
             top: 15px;
             left: 15px;
 
+            z-index: 1000;
+
             padding: 12px 18px;
 
-            background: rgba(15, 15, 15, 0.9);
-            color: white;
+            background:
+                rgba(15, 15, 15, 0.92);
 
-            border: 1px solid #444;
+            border:
+                1px solid
+                rgba(255, 255, 255, 0.15);
+
             border-radius: 8px;
+
+            box-shadow:
+                0 4px 20px
+                rgba(0, 0, 0, 0.45);
+
+            user-select: none;
+        }
+
+        #title {
 
             font-size: 18px;
             font-weight: bold;
 
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            margin-bottom: 4px;
         }
 
+        #subtitle {
+
+            color: #999;
+
+            font-size: 12px;
+        }
+
+        /*
+         * Informations en bas
+         */
+
         #status {
+
             position: absolute;
-            z-index: 1000;
-            bottom: 15px;
+
             left: 15px;
+            bottom: 15px;
+
+            z-index: 1000;
 
             padding: 8px 12px;
 
-            background: rgba(15, 15, 15, 0.9);
-            color: #aaa;
+            background:
+                rgba(15, 15, 15, 0.92);
+
+            border:
+                1px solid
+                rgba(255, 255, 255, 0.12);
 
             border-radius: 6px;
-            font-size: 13px;
+
+            color: #aaa;
+
+            font-size: 12px;
+
+            pointer-events: none;
         }
+
+        /*
+         * Coordonnées
+         */
+
+        #coordinates {
+
+            position: absolute;
+
+            right: 15px;
+            bottom: 15px;
+
+            z-index: 1000;
+
+            padding: 8px 12px;
+
+            background:
+                rgba(15, 15, 15, 0.92);
+
+            border:
+                1px solid
+                rgba(255, 255, 255, 0.12);
+
+            border-radius: 6px;
+
+            color: #aaa;
+
+            font-size: 12px;
+
+            pointer-events: none;
+        }
+
+        /*
+         * Apparence des tuiles
+         */
+
+        .wplace-tile {
+
+            image-rendering: auto;
+
+            background: #222;
+
+            border: none;
+        }
+
+        /*
+         * Attribution
+         */
+
+        .leaflet-control-attribution {
+
+            background:
+                rgba(0, 0, 0, 0.65) !important;
+
+            color: #aaa;
+
+        }
+
+        .leaflet-control-attribution a {
+
+            color: #ddd;
+
+        }
+
     </style>
+
 </head>
+
 
 <body>
 
-    <div id="title">
-        WPlace Alliance
-    </div>
 
-    <div id="status">
-        Chargement de la carte...
-    </div>
+    <!-- Carte -->
 
     <div id="map"></div>
 
+
+    <!-- Interface -->
+
+    <div id="topbar">
+
+        <div id="title">
+            WPlace Alliance
+        </div>
+
+        <div id="subtitle">
+            Carte tactique de l'alliance
+        </div>
+
+    </div>
+
+
+    <div id="status">
+        Initialisation de la carte...
+    </div>
+
+
+    <div id="coordinates">
+        X: — &nbsp;&nbsp; Y: —
+    </div>
+
+
     <!-- Leaflet -->
+
     <script
         src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin="">
     </script>
 
+
     <script>
-        /*
-         * WPlace Alliance
-         * Première version :
-         * carte WPlace uniquement.
-         */
-
-        const map = L.map("map", {
-            crs: L.CRS.Simple,
-
-            minZoom: 0,
-            maxZoom: 11,
-
-            zoomControl: true,
-
-            attributionControl: true
-        });
 
         /*
-         * WPlace utilise des tuiles de 1000x1000 pixels.
+         * ============================================================
+         * WPLACE ALLIANCE
+         * Carte WPlace
+         * ============================================================
          *
-         * On commence avec une seule source de tuiles.
+         * WPlace :
+         *
+         * - 2048 × 2048 tuiles
+         * - chaque tuile = 1000 × 1000 pixels
+         *
+         * Les tuiles sont accessibles via :
+         *
+         * https://backend.wplace.live/files/s0/tiles/X/Y.png
+         *
+         * ============================================================
          */
 
-        const tileLayer = L.tileLayer(
-            "https://backend.wplace.live/files/s0/tiles/{x}/{y}.png",
+
+        /*
+         * ------------------------------------------------------------
+         * CONSTANTES WPLACE
+         * ------------------------------------------------------------
+         */
+
+        const TILE_SIZE = 1000;
+
+        const TILE_COUNT = 2048;
+
+        const WORLD_SIZE =
+            TILE_SIZE * TILE_COUNT;
+
+
+        /*
+         * ------------------------------------------------------------
+         * CRS PERSONNALISÉ
+         * ------------------------------------------------------------
+         *
+         * On utilise CRS.Simple car WPlace est une grille.
+         *
+         * On modifie son échelle pour que :
+         *
+         * zoom 0  = 1 tuile
+         * zoom 1  = 2 × 2 tuiles
+         * ...
+         * zoom 11 = 2048 × 2048 tuiles
+         *
+         * 2^11 = 2048
+         */
+
+        const WPlaceCRS = L.extend(
+            {},
+            L.CRS.Simple
+        );
+
+
+        WPlaceCRS.scale = function (zoom) {
+
+            return TILE_SIZE *
+                Math.pow(2, zoom);
+
+        };
+
+
+        WPlaceCRS.zoom = function (scale) {
+
+            return Math.log(
+                scale / TILE_SIZE
+            ) / Math.LN2;
+
+        };
+
+
+        /*
+         * ------------------------------------------------------------
+         * CARTE
+         * ------------------------------------------------------------
+         */
+
+        const map = L.map(
+            "map",
             {
-                tileSize: 1000,
+
+                crs: WPlaceCRS,
 
                 minZoom: 0,
+
+                maxZoom: 11,
+
+                zoomControl: true,
+
+                attributionControl: true,
+
+                worldCopyJump: false
+
+            }
+        );
+
+
+        /*
+         * ------------------------------------------------------------
+         * COUCHE DE TUILES WPLACE
+         * ------------------------------------------------------------
+         *
+         * On utilise GridLayer plutôt que TileLayer.
+         *
+         * Cela nous permet de contrôler directement :
+         *
+         *     coords.x
+         *     coords.y
+         *
+         * et donc de les envoyer à WPlace.
+         */
+
+        const WPlaceLayer =
+            L.GridLayer.extend({
+
+                createTile: function (
+                    coords,
+                    done
+                ) {
+
+                    const tile =
+                        document.createElement(
+                            "img"
+                        );
+
+
+                    /*
+                     * Taille physique de la tuile.
+                     */
+
+                    const size =
+                        this.getTileSize();
+
+
+                    tile.width =
+                        size.x;
+
+                    tile.height =
+                        size.y;
+
+
+                    tile.className =
+                        "wplace-tile";
+
+
+                    /*
+                     * Pas de tuile négative.
+                     */
+
+                    if (
+                        coords.x < 0 ||
+                        coords.y < 0 ||
+                        coords.x >= TILE_COUNT ||
+                        coords.y >= TILE_COUNT
+                    ) {
+
+                        tile.style.visibility =
+                            "hidden";
+
+                        setTimeout(
+                            function () {
+
+                                done(
+                                    null,
+                                    tile
+                                );
+
+                            },
+                            0
+                        );
+
+                        return tile;
+
+                    }
+
+
+                    /*
+                     * URL officielle de la tuile.
+                     */
+
+                    const url =
+                        "https://backend.wplace.live" +
+                        "/files/s0/tiles/" +
+                        coords.x +
+                        "/" +
+                        coords.y +
+                        ".png";
+
+
+                    /*
+                     * Quand l'image est chargée.
+                     */
+
+                    tile.onload =
+                        function () {
+
+                            done(
+                                null,
+                                tile
+                            );
+
+                            updateStatus();
+
+                        };
+
+
+                    /*
+                     * En cas d'erreur.
+                     */
+
+                    tile.onerror =
+                        function (error) {
+
+                            console.error(
+                                "Erreur tuile WPlace :",
+                                coords.x,
+                                coords.y,
+                                error
+                            );
+
+                            tile.style.background =
+                                "#222";
+
+                            done(
+                                null,
+                                tile
+                            );
+
+                            updateStatus();
+
+                        };
+
+
+                    /*
+                     * Chargement.
+                     */
+
+                    tile.src = url;
+
+
+                    return tile;
+
+                },
+
+                tileSize: TILE_SIZE,
+
+                minZoom: 0,
+
                 maxZoom: 11,
 
                 noWrap: true,
 
-                attribution: "WPlace"
+                updateWhenIdle: true,
+
+                keepBuffer: 2
+
+            });
+
+
+        const wplace =
+            new WPlaceLayer();
+
+
+        wplace.addTo(map);
+
+
+        /*
+         * ------------------------------------------------------------
+         * LIMITES DE LA CARTE
+         * ------------------------------------------------------------
+         *
+         * Notre espace de coordonnées :
+         *
+         * X = 0 → 2048
+         * Y = 0 → 2048
+         */
+
+        const worldBounds =
+            L.latLngBounds(
+                [
+                    0,
+                    0
+                ],
+                [
+                    TILE_COUNT,
+                    TILE_COUNT
+                ]
+            );
+
+
+        map.setMaxBounds(
+            worldBounds
+        );
+
+
+        /*
+         * ------------------------------------------------------------
+         * POSITION INITIALE
+         * ------------------------------------------------------------
+         */
+
+        map.fitBounds(
+            worldBounds
+        );
+
+
+        /*
+         * ------------------------------------------------------------
+         * STATUS
+         * ------------------------------------------------------------
+         */
+
+        const status =
+            document.getElementById(
+                "status"
+            );
+
+
+        function updateStatus() {
+
+            status.textContent =
+                "Carte WPlace active";
+
+        }
+
+
+        /*
+         * ------------------------------------------------------------
+         * COORDONNÉES DE LA SOURIS
+         * ------------------------------------------------------------
+         */
+
+        const coordinates =
+            document.getElementById(
+                "coordinates"
+            );
+
+
+        map.on(
+            "mousemove",
+            function (event) {
+
+                const x =
+                    Math.floor(
+                        event.latlng.lng
+                    );
+
+                const y =
+                    Math.floor(
+                        event.latlng.lat
+                    );
+
+
+                coordinates.textContent =
+                    "X: " +
+                    x +
+                    "   Y: " +
+                    y;
+
             }
         );
 
-        tileLayer.addTo(map);
 
         /*
-         * Monde WPlace :
-         *
-         * Les coordonnées de tuiles vont jusqu'à 2048 × 2048.
+         * ------------------------------------------------------------
+         * DEBUG
+         * ------------------------------------------------------------
          */
 
-        const worldSize = 2048 * 1000;
-
-        const southWest = [0, 0];
-        const northEast = [worldSize, worldSize];
-
-        const bounds = L.latLngBounds(
-            southWest,
-            northEast
+        console.log(
+            "WPlace Alliance initialisé"
         );
 
-        map.setMaxBounds(bounds);
+        console.log(
+            "Taille du monde :",
+            TILE_COUNT,
+            "×",
+            TILE_COUNT
+        );
 
-        /*
-         * Vue initiale.
-         */
+        console.log(
+            "Taille d'une tuile :",
+            TILE_SIZE,
+            "×",
+            TILE_SIZE
+        );
 
-        map.fitBounds(bounds);
 
-        /*
-         * Indication de chargement.
-         */
-
-        tileLayer.on("load", function () {
-            document.getElementById("status").textContent =
-                "Carte WPlace chargée";
-        });
-
-        tileLayer.on("tileerror", function () {
-            document.getElementById("status").textContent =
-                "Erreur lors du chargement d'une tuile WPlace";
-        });
     </script>
 
+
 </body>
+
 </html>
