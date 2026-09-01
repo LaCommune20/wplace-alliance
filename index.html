@@ -52,9 +52,10 @@ html, body {
 
 #zones-tab {
     position: absolute;
-    top: 15px;
-    left: 325px;
+    top: 170px;
+    left: 15px;
     z-index: 1001;
+    width: 295px;
     padding: 11px 14px;
     border: 1px solid rgba(255,255,255,.15);
     border-radius: 9px;
@@ -62,6 +63,7 @@ html, body {
     color: #ddd;
     font-size: 12px;
     font-weight: bold;
+    text-align: left;
     cursor: pointer;
     box-shadow: 0 5px 25px rgba(0,0,0,.35);
     transition: background .15s, color .15s;
@@ -74,11 +76,11 @@ html, body {
 
 #zones-panel {
     position: absolute;
-    top: 58px;
-    left: 325px;
+    top: 213px;
+    left: 15px;
     z-index: 1000;
-    width: 330px;
-    max-height: calc(100vh - 85px);
+    width: 295px;
+    max-height: calc(100vh - 235px);
     overflow-y: auto;
     padding: 14px;
     background: rgba(15,15,15,.96);
@@ -219,11 +221,12 @@ html, body {
 
 @media (max-width: 700px) {
     #panel { min-width: 250px; max-width: calc(100vw - 30px); }
-    #zones-tab { left: 15px; top: 150px; }
+    #zones-tab { left: 15px; top: 150px; width: 250px; }
     #zones-panel {
         left: 15px;
         top: 195px;
         width: min(330px, calc(100vw - 30px));
+        max-height: calc(100vh - 215px);
     }
 }
 </style>
@@ -291,21 +294,7 @@ const INITIAL_LONGITUDE = 5.93;
 const INITIAL_LATITUDE = 43.12;
 const INITIAL_ZOOM = 9;
 
-/*
- * Architecture des zones.
- *
- * Les tuiles seront renseignées progressivement.
- * Exemple futur :
- *
- * tiles: [
- *     [1057, 751],
- *     [1058, 751],
- *     [1057, 752]
- * ]
- *
- * Les données pourront ensuite être alimentées depuis Discord.
- */
-
+/* Architecture des zones — les tuiles seront renseignées progressivement. */
 const ALLIANCE_ZONES = [
     {
         id: "toulon",
@@ -329,24 +318,16 @@ function latitudeToWorldY(latitude) {
     const mercator = Math.log(
         Math.tan(Math.PI / 4 + latitudeRadians / 2)
     );
-
     return ((1 - mercator / Math.PI) / 2) * WPLACE_WORLD_SIZE;
 }
 
 function worldToWplace(worldX, worldY) {
     let tileX = Math.floor(worldX / WPLACE_TILE_SIZE);
     let tileY = Math.floor(worldY / WPLACE_TILE_SIZE);
-
-    const pixelX = Math.floor(
-        worldX - tileX * WPLACE_TILE_SIZE
-    );
-    const pixelY = Math.floor(
-        worldY - tileY * WPLACE_TILE_SIZE
-    );
-
+    const pixelX = Math.floor(worldX - tileX * WPLACE_TILE_SIZE);
+    const pixelY = Math.floor(worldY - tileY * WPLACE_TILE_SIZE);
     tileX = Math.max(0, Math.min(WPLACE_TILE_COUNT - 1, tileX));
     tileY = Math.max(0, Math.min(WPLACE_TILE_COUNT - 1, tileY));
-
     return { tileX, tileY, pixelX, pixelY };
 }
 
@@ -357,7 +338,6 @@ function worldXToLongitude(worldX) {
 function worldYToLatitude(worldY) {
     const normalized = worldY / WPLACE_WORLD_SIZE;
     const mercatorY = Math.PI * (1 - 2 * normalized);
-
     return Math.atan(Math.sinh(mercatorY)) * 180 / Math.PI;
 }
 
@@ -366,7 +346,6 @@ function getTileCoordinates(tileX, tileY) {
     const worldEast = (tileX + 1) * WPLACE_TILE_SIZE;
     const worldNorth = tileY * WPLACE_TILE_SIZE;
     const worldSouth = (tileY + 1) * WPLACE_TILE_SIZE;
-
     return [
         [worldXToLongitude(worldWest), worldYToLatitude(worldNorth)],
         [worldXToLongitude(worldEast), worldYToLatitude(worldNorth)],
@@ -388,11 +367,7 @@ const map = new maplibregl.Map({
     attributionControl: true
 });
 
-map.addControl(
-    new maplibregl.NavigationControl(),
-    "top-right"
-);
-
+map.addControl(new maplibregl.NavigationControl(), "top-right");
 map.dragRotate.disable();
 map.touchZoomRotate.disableRotation();
 map.keyboard.disable();
@@ -419,12 +394,8 @@ function renderZonePanel() {
         checkbox.title = "Sélectionner cette zone";
 
         checkbox.addEventListener("change", () => {
-            if (checkbox.checked) {
-                selectedZones.add(zone.id);
-            } else {
-                selectedZones.delete(zone.id);
-            }
-
+            if (checkbox.checked) selectedZones.add(zone.id);
+            else selectedZones.delete(zone.id);
             updateWPlaceTiles();
         });
 
@@ -437,11 +408,7 @@ function renderZonePanel() {
 
         const meta = document.createElement("div");
         meta.className = "zone-meta";
-        meta.textContent =
-            zone.description +
-            " · " +
-            zone.tiles.length +
-            " tuile(s) configurée(s)";
+        meta.textContent = zone.description + " · " + zone.tiles.length + " tuile(s) configurée(s)";
 
         main.appendChild(name);
         main.appendChild(meta);
@@ -450,40 +417,26 @@ function renderZonePanel() {
         focus.type = "button";
         focus.className = "zone-focus";
         focus.textContent = "CENTRER";
-
         focus.addEventListener("click", () => {
-            map.flyTo({
-                center: zone.center,
-                zoom: zone.zoom,
-                duration: 700
-            });
+            map.flyTo({ center: zone.center, zoom: zone.zoom, duration: 700 });
         });
 
         card.appendChild(checkbox);
         card.appendChild(main);
         card.appendChild(focus);
-
         list.appendChild(card);
     }
 }
 
 function getSelectedZoneTiles() {
     const result = new Set();
-
     for (const zone of ALLIANCE_ZONES) {
-        if (!selectedZones.has(zone.id)) {
-            continue;
-        }
-
+        if (!selectedZones.has(zone.id)) continue;
         for (const tile of zone.tiles) {
-            if (!Array.isArray(tile) || tile.length !== 2) {
-                continue;
-            }
-
+            if (!Array.isArray(tile) || tile.length !== 2) continue;
             result.add(tileId(tile[0], tile[1]));
         }
     }
-
     return result;
 }
 
@@ -497,10 +450,7 @@ zonesTab.addEventListener("click", () => {
 });
 
 document.addEventListener("click", event => {
-    if (
-        !zonesPanel.contains(event.target) &&
-        !zonesTab.contains(event.target)
-    ) {
+    if (!zonesPanel.contains(event.target) && !zonesTab.contains(event.target)) {
         zonesPanel.classList.remove("open");
         zonesTab.setAttribute("aria-expanded", "false");
         zonesTab.textContent = "ZONES";
@@ -516,11 +466,7 @@ renderZonePanel();
 
 function addWPlaceTile(tileX, tileY) {
     const id = tileId(tileX, tileY);
-
-    if (loadedTiles.has(id)) {
-        return;
-    }
-
+    if (loadedTiles.has(id)) return;
     if (loadedTiles.size >= MAX_LOADED_TILES) {
         console.warn("Limite de tuiles atteinte.");
         return;
@@ -531,13 +477,7 @@ function addWPlaceTile(tileX, tileY) {
 
     map.addSource(sourceId, {
         type: "image",
-        url:
-            WPLACE_PROXY +
-            "/tile/" +
-            tileX +
-            "/" +
-            tileY +
-            ".png",
+        url: WPLACE_PROXY + "/tile/" + tileX + "/" + tileY + ".png",
         coordinates: getTileCoordinates(tileX, tileY)
     });
 
@@ -547,53 +487,26 @@ function addWPlaceTile(tileX, tileY) {
         source: sourceId,
         minzoom: WPLACE_MIN_DISPLAY_ZOOM,
         maxzoom: 14,
-        paint: {
-            "raster-opacity": 1,
-            "raster-fade-duration": 0
-        }
+        paint: { "raster-opacity": 1, "raster-fade-duration": 0 }
     });
 
-    loadedTiles.set(id, {
-        tileX,
-        tileY,
-        sourceId,
-        layerId
-    });
-
+    loadedTiles.set(id, { tileX, tileY, sourceId, layerId });
     console.log("Tuile WPlace chargée :", tileX, tileY);
 }
 
 function removeWPlaceTile(id) {
     const tile = loadedTiles.get(id);
-
-    if (!tile) {
-        return;
-    }
-
-    if (map.getLayer(tile.layerId)) {
-        map.removeLayer(tile.layerId);
-    }
-
-    if (map.getSource(tile.sourceId)) {
-        map.removeSource(tile.sourceId);
-    }
-
+    if (!tile) return;
+    if (map.getLayer(tile.layerId)) map.removeLayer(tile.layerId);
+    if (map.getSource(tile.sourceId)) map.removeSource(tile.sourceId);
     loadedTiles.delete(id);
-
-    console.log(
-        "Tuile WPlace retirée :",
-        tile.tileX,
-        tile.tileY
-    );
+    console.log("Tuile WPlace retirée :", tile.tileX, tile.tileY);
 }
 
 function getVisibleWPlaceTiles() {
-    if (map.getZoom() < WPLACE_MIN_DISPLAY_ZOOM) {
-        return new Set();
-    }
+    if (map.getZoom() < WPLACE_MIN_DISPLAY_ZOOM) return new Set();
 
     const bounds = map.getBounds();
-
     const west = bounds.getWest();
     const east = bounds.getEast();
     const north = Math.min(85.05112878, bounds.getNorth());
@@ -620,25 +533,15 @@ function getVisibleWPlaceTiles() {
     maxTileY = Math.min(WPLACE_TILE_COUNT - 1, maxTileY);
 
     const result = new Set();
-
     for (let x = minTileX; x <= maxTileX; x++) {
-        for (let y = minTileY; y <= maxTileY; y++) {
-            result.add(tileId(x, y));
-        }
+        for (let y = minTileY; y <= maxTileY; y++) result.add(tileId(x, y));
     }
 
-    /*
-     * Quand les zones auront leurs tuiles, ce filtre les
-     * utilisera automatiquement.
-     */
     if (zoneFilterEnabled) {
         const zoneTiles = getSelectedZoneTiles();
-
         if (zoneTiles.size > 0) {
             for (const id of result) {
-                if (!zoneTiles.has(id)) {
-                    result.delete(id);
-                }
+                if (!zoneTiles.has(id)) result.delete(id);
             }
         }
     }
@@ -651,50 +554,28 @@ function updateWPlaceTiles() {
 
     if (zoom < WPLACE_MIN_DISPLAY_ZOOM) {
         desiredTiles = new Set();
-
-        for (const id of [...loadedTiles.keys()]) {
-            removeWPlaceTile(id);
-        }
-
+        for (const id of [...loadedTiles.keys()]) removeWPlaceTile(id);
         updateTileCounters();
-
-        document.getElementById("status").textContent =
-            "Carte géographique — zoom " + zoom.toFixed(1);
-
+        document.getElementById("status").textContent = "Carte géographique — zoom " + zoom.toFixed(1);
         return;
     }
 
     desiredTiles = getVisibleWPlaceTiles();
 
     if (desiredTiles.size > MAX_LOADED_TILES) {
-        console.warn(
-            "La vue demande",
-            desiredTiles.size,
-            "tuiles."
-        );
-
-        document.getElementById("status").textContent =
-            "Zone trop large — zoomez davantage";
-
+        console.warn("La vue demande", desiredTiles.size, "tuiles.");
+        document.getElementById("status").textContent = "Zone trop large — zoomez davantage";
         return;
     }
 
     for (const id of desiredTiles) {
-        if (loadedTiles.has(id)) {
-            continue;
-        }
-
+        if (loadedTiles.has(id)) continue;
         const parts = id.split("/");
-        addWPlaceTile(
-            Number(parts[0]),
-            Number(parts[1])
-        );
+        addWPlaceTile(Number(parts[0]), Number(parts[1]));
     }
 
     for (const id of [...loadedTiles.keys()]) {
-        if (!desiredTiles.has(id)) {
-            removeWPlaceTile(id);
-        }
+        if (!desiredTiles.has(id)) removeWPlaceTile(id);
     }
 
     document.getElementById("status").textContent =
@@ -706,31 +587,19 @@ function updateWPlaceTiles() {
 }
 
 function updateTileCounters() {
-    document.getElementById("visibleTiles").textContent =
-        desiredTiles.size;
-
-    document.getElementById("loadedTiles").textContent =
-        loadedTiles.size;
+    document.getElementById("visibleTiles").textContent = desiredTiles.size;
+    document.getElementById("loadedTiles").textContent = loadedTiles.size;
 }
 
 function updateInterface() {
     const zoom = map.getZoom();
-    document.getElementById("zoom").textContent =
-        zoom.toFixed(2);
-
+    document.getElementById("zoom").textContent = zoom.toFixed(2);
     const center = map.getCenter();
-
     const worldX = longitudeToWorldX(center.lng);
     const worldY = latitudeToWorldY(center.lat);
-
     const wplace = worldToWplace(worldX, worldY);
-
-    document.getElementById("tile").textContent =
-        wplace.tileX + " / " + wplace.tileY;
-
-    document.getElementById("pixel").textContent =
-        wplace.pixelX + " / " + wplace.pixelY;
-
+    document.getElementById("tile").textContent = wplace.tileX + " / " + wplace.tileY;
+    document.getElementById("pixel").textContent = wplace.pixelX + " / " + wplace.pixelY;
     updateTileCounters();
 }
 
@@ -738,16 +607,9 @@ map.on("mousemove", event => {
     const worldX = longitudeToWorldX(event.lngLat.lng);
     const worldY = latitudeToWorldY(event.lngLat.lat);
     const wplace = worldToWplace(worldX, worldY);
-
     document.getElementById("coordinates").textContent =
-        "Tuile " +
-        wplace.tileX +
-        " / " +
-        wplace.tileY +
-        "   Pixel " +
-        wplace.pixelX +
-        " / " +
-        wplace.pixelY;
+        "Tuile " + wplace.tileX + " / " + wplace.tileY +
+        "   Pixel " + wplace.pixelX + " / " + wplace.pixelY;
 });
 
 map.on("moveend", () => {
@@ -764,29 +626,16 @@ map.on("load", () => {
     console.log("========================================");
     console.log("WPlace Bergamottto");
     console.log("Carte géographique chargée");
-    console.log(
-        "Monde WPlace :",
-        WPLACE_WORLD_SIZE,
-        "×",
-        WPLACE_WORLD_SIZE
-    );
+    console.log("Monde WPlace :", WPLACE_WORLD_SIZE, "×", WPLACE_WORLD_SIZE);
     console.log("Zoom natif :", WPLACE_NATIVE_ZOOM);
     console.log("Proxy :", WPLACE_PROXY);
-    console.log(
-        "Affichage WPlace à partir du zoom :",
-        WPLACE_MIN_DISPLAY_ZOOM
-    );
-    console.log(
-        "Limite simultanée :",
-        MAX_LOADED_TILES,
-        "tuiles"
-    );
+    console.log("Affichage WPlace à partir du zoom :", WPLACE_MIN_DISPLAY_ZOOM);
+    console.log("Limite simultanée :", MAX_LOADED_TILES, "tuiles");
     console.log("Zones disponibles :", ALLIANCE_ZONES.length);
     console.log("========================================");
 
     map.setBearing(0);
     map.setPitch(0);
-
     updateInterface();
     updateWPlaceTiles();
 });
