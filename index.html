@@ -37,6 +37,7 @@
             box-sizing: border-box;
         }
 
+
         html,
         body {
 
@@ -57,6 +58,7 @@
 
         }
 
+
         #map {
 
             width: 100%;
@@ -66,7 +68,7 @@
 
 
         /* =====================================================
-           PANNEAU
+           PANNEAU PRINCIPAL
            ===================================================== */
 
         #panel {
@@ -78,7 +80,7 @@
 
             z-index: 1000;
 
-            min-width: 285px;
+            min-width: 295px;
 
             padding: 14px 17px;
 
@@ -140,13 +142,13 @@
 
             font-size: 11px;
 
-            line-height: 1.65;
+            line-height: 1.7;
 
         }
 
 
         /* =====================================================
-           STATUS
+           STATUT
            ===================================================== */
 
         #status {
@@ -183,7 +185,7 @@
 
 
         /* =====================================================
-           COORDONNÉES
+           COORDONNÉES SOURIS
            ===================================================== */
 
         #coordinates {
@@ -232,11 +234,13 @@
 
         }
 
+
         .maplibregl-ctrl-attrib a {
 
             color: #ddd;
 
         }
+
 
         .maplibregl-ctrl-group {
 
@@ -244,6 +248,7 @@
                 rgba(20, 20, 20, 0.9) !important;
 
         }
+
 
         .maplibregl-ctrl-group button {
 
@@ -268,7 +273,7 @@
 
 
     <!-- =========================================================
-         INTERFACE
+         PANNEAU
          ========================================================= -->
 
     <div id="panel">
@@ -297,15 +302,22 @@
 
             <br>
 
-            Pixel dans la tuile :
+            Pixel :
             <span id="pixel">
                 —
             </span>
 
             <br>
 
-            Tuiles WPlace :
-            <span id="tiles">
+            Tuiles visibles :
+            <span id="visibleTiles">
+                0
+            </span>
+
+            <br>
+
+            Tuiles en mémoire :
+            <span id="loadedTiles">
                 0
             </span>
 
@@ -314,13 +326,21 @@
     </div>
 
 
+    <!-- =========================================================
+         STATUT
+         ========================================================= -->
+
     <div id="status">
         Initialisation de la carte...
     </div>
 
 
+    <!-- =========================================================
+         COORDONNÉES
+         ========================================================= -->
+
     <div id="coordinates">
-        X: — &nbsp; Y: —
+        Tuile — / — &nbsp; Pixel — / —
     </div>
 
 
@@ -344,16 +364,18 @@
 
         /*
          * =========================================================
-         * CONSTANTES WPLACE
+         * CONFIGURATION WPLACE
          * =========================================================
          */
 
 
-        const WPLACE_TILE_COUNT = 2048;
+        const WPLACE_TILE_COUNT =
+            2048;
 
-        const WPLACE_TILE_SIZE = 1000;
 
-        const WPLACE_ZOOM = 11;
+        const WPLACE_TILE_SIZE =
+            1000;
+
 
         const WPLACE_WORLD_SIZE =
             WPLACE_TILE_COUNT *
@@ -361,41 +383,112 @@
 
 
         /*
+         * Le niveau natif des tuiles WPlace.
+         */
+
+
+        const WPLACE_NATIVE_ZOOM =
+            11;
+
+
+        /*
+         * En dessous de ce zoom, on n'affiche pas encore
+         * les pixels WPlace.
+         *
+         * Cela évite de charger énormément de tuiles
+         * lorsqu'on regarde une région très éloignée.
+         */
+
+
+        const WPLACE_MIN_DISPLAY_ZOOM =
+            9;
+
+
+        /*
+         * Marge autour de la zone visible.
+         *
+         * 1 = on garde une rangée de tuiles autour de
+         * l'écran afin d'éviter les trous pendant les déplacements.
+         */
+
+
+        const TILE_PADDING =
+            1;
+
+
+        /*
+         * Sécurité :
+         *
+         * nombre maximal de tuiles WPlace que cette version
+         * peut charger simultanément.
+         *
+         * Nous augmenterons éventuellement cette valeur
+         * lorsque les zones de l'alliance seront branchées.
+         */
+
+
+        const MAX_LOADED_TILES =
+            100;
+
+
+        /*
+         * =========================================================
+         * WORKER CLOUDFLARE
+         * =========================================================
+         */
+
+
+        const WPLACE_PROXY =
+            "https://wplace-commune-proxy.mathieu-peter.workers.dev";
+
+
+        /*
          * =========================================================
          * POSITION INITIALE
          * =========================================================
          *
-         * On démarre autour de Toulon.
+         * Toulon
          *
          */
 
 
-        const INITIAL_LONGITUDE = 5.93;
+        const INITIAL_LONGITUDE =
+            5.93;
 
-        const INITIAL_LATITUDE = 43.12;
 
-        const INITIAL_ZOOM = 7;
+        const INITIAL_LATITUDE =
+            43.12;
+
+
+        /*
+         * On commence directement à 9 pour que les pixels
+         * soient visibles lors du premier chargement.
+         */
+
+
+        const INITIAL_ZOOM =
+            9;
 
 
         /*
          * =========================================================
          * CONVERSION LONGITUDE → MONDE WPLACE
          * =========================================================
-         *
-         * WPlace possède 2048 tuiles sur 360 degrés.
-         *
-         * Chaque tuile possède 1000 pixels.
-         *
          */
 
 
-        function longitudeToWorldX(longitude) {
+        function longitudeToWorldX(
+            longitude
+        ) {
 
             return (
-                (longitude + 180) /
-                360 *
-                WPLACE_WORLD_SIZE
-            );
+                (
+                    longitude +
+                    180
+                ) /
+                360
+            ) *
+            WPLACE_WORLD_SIZE;
 
         }
 
@@ -404,13 +497,12 @@
          * =========================================================
          * CONVERSION LATITUDE → MONDE WPLACE
          * =========================================================
-         *
-         * Projection Web Mercator.
-         *
          */
 
 
-        function latitudeToWorldY(latitude) {
+        function latitudeToWorldY(
+            latitude
+        ) {
 
             const latitudeRadians =
                 latitude *
@@ -430,7 +522,8 @@
             return (
                 (
                     1 -
-                    mercator / Math.PI
+                    mercator /
+                    Math.PI
                 ) /
                 2
             ) *
@@ -441,7 +534,7 @@
 
         /*
          * =========================================================
-         * MONDE WPLACE → COORDONNÉES WPLACE
+         * MONDE WPLACE → COORDONNÉES TUILE
          * =========================================================
          */
 
@@ -450,6 +543,7 @@
             worldX,
             worldY
         ) {
+
 
             let tileX =
                 Math.floor(
@@ -465,7 +559,7 @@
                 );
 
 
-            let pixelX =
+            const pixelX =
                 Math.floor(
                     worldX -
                     tileX *
@@ -473,17 +567,13 @@
                 );
 
 
-            let pixelY =
+            const pixelY =
                 Math.floor(
                     worldY -
                     tileY *
                     WPLACE_TILE_SIZE
                 );
 
-
-            /*
-             * Sécurité.
-             */
 
             tileX =
                 Math.max(
@@ -520,7 +610,7 @@
 
         /*
          * =========================================================
-         * COORDONNÉE MONDE → LONGITUDE
+         * MONDE X → LONGITUDE
          * =========================================================
          */
 
@@ -530,8 +620,10 @@
         ) {
 
             return (
-                worldX /
-                WPLACE_WORLD_SIZE *
+                (
+                    worldX /
+                    WPLACE_WORLD_SIZE
+                ) *
                 360
             ) - 180;
 
@@ -540,7 +632,7 @@
 
         /*
          * =========================================================
-         * COORDONNÉE MONDE → LATITUDE
+         * MONDE Y → LATITUDE
          * =========================================================
          */
 
@@ -548,6 +640,7 @@
         function worldYToLatitude(
             worldY
         ) {
+
 
             const normalized =
                 worldY /
@@ -578,140 +671,7 @@
 
         /*
          * =========================================================
-         * CALCUL DE LA TUILE INITIALE
-         * =========================================================
-         */
-
-
-        const initialWorldX =
-            longitudeToWorldX(
-                INITIAL_LONGITUDE
-            );
-
-
-        const initialWorldY =
-            latitudeToWorldY(
-                INITIAL_LATITUDE
-            );
-
-
-        const initialTile =
-            worldToWplace(
-                initialWorldX,
-                initialWorldY
-            );
-
-
-        console.log(
-            "========================================"
-        );
-
-        console.log(
-            "WPlace Bergamottto"
-        );
-
-        console.log(
-            "Monde :",
-            WPLACE_WORLD_SIZE,
-            "×",
-            WPLACE_WORLD_SIZE
-        );
-
-        console.log(
-            "Zoom natif :",
-            WPLACE_ZOOM
-        );
-
-        console.log(
-            "Toulon → tuile :",
-            initialTile.tileX,
-            initialTile.tileY
-        );
-
-        console.log(
-            "Toulon → pixel :",
-            initialTile.pixelX,
-            initialTile.pixelY
-        );
-
-        console.log(
-            "URL WPlace :",
-            "https://backend.wplace.live/files/s0/tiles/" +
-            initialTile.tileX +
-            "/" +
-            initialTile.tileY +
-            ".png"
-        );
-
-        console.log(
-            "========================================"
-        );
-
-
-        /*
-         * =========================================================
-         * MAPLIBRE
-         * =========================================================
-         */
-
-
-        const map =
-            new maplibregl.Map({
-
-                container:
-                    "map",
-
-                style:
-                    "https://tiles.openfreemap.org/styles/liberty",
-
-                center:
-                    [
-                        INITIAL_LONGITUDE,
-                        INITIAL_LATITUDE
-                    ],
-
-                zoom:
-                    INITIAL_ZOOM,
-
-                minZoom:
-                    0,
-
-                maxZoom:
-                    13,
-
-                attributionControl:
-                    true
-
-            });
-
-
-        /*
-         * =========================================================
-         * CONTRÔLES
-         * =========================================================
-         */
-
-
-        map.addControl(
-            new maplibregl.NavigationControl(),
-            "top-right"
-        );
-
-
-        /*
-         * =========================================================
-         * TUILES WPLACE CHARGÉES
-         * =========================================================
-         */
-
-
-        const loadedTiles =
-            new Set();
-
-
-        /*
-         * =========================================================
-         * CRÉATION DES COORDONNÉES D'UNE TUILE
+         * COORDONNÉES D'UNE TUILE
          * =========================================================
          */
 
@@ -729,7 +689,8 @@
 
             const worldEast =
                 (
-                    tileX + 1
+                    tileX +
+                    1
                 ) *
                 WPLACE_TILE_SIZE;
 
@@ -741,7 +702,8 @@
 
             const worldSouth =
                 (
-                    tileY + 1
+                    tileY +
+                    1
                 ) *
                 WPLACE_TILE_SIZE;
 
@@ -799,7 +761,133 @@
 
         /*
          * =========================================================
-         * AJOUT D'UNE TUILE WPLACE
+         * MAPLIBRE
+         * =========================================================
+         */
+
+
+        const map =
+            new maplibregl.Map({
+
+                container:
+                    "map",
+
+                style:
+                    "https://tiles.openfreemap.org/styles/liberty",
+
+                center:
+                    [
+                        INITIAL_LONGITUDE,
+                        INITIAL_LATITUDE
+                    ],
+
+                zoom:
+                    INITIAL_ZOOM,
+
+                minZoom:
+                    0,
+
+                maxZoom:
+                    13,
+
+                bearing:
+                    0,
+
+                pitch:
+                    0,
+
+                maxPitch:
+                    0,
+
+                attributionControl:
+                    true
+
+            });
+
+
+        /*
+         * =========================================================
+         * CONTRÔLES
+         * =========================================================
+         */
+
+
+        map.addControl(
+            new maplibregl.NavigationControl(),
+            "top-right"
+        );
+
+
+        /*
+         * =========================================================
+         * DÉSACTIVATION DE LA ROTATION
+         * =========================================================
+         *
+         * Carte strictement 2D.
+         *
+         */
+
+
+        map.dragRotate.disable();
+
+
+        map.touchZoomRotate.disableRotation();
+
+
+        map.keyboard.disable();
+
+
+        /*
+         * =========================================================
+         * TUILES ACTUELLEMENT CHARGÉES
+         * =========================================================
+         *
+         * Map :
+         *
+         * "tileX/tileY" → informations sur la tuile.
+         *
+         */
+
+
+        const loadedTiles =
+            new Map();
+
+
+        /*
+         * =========================================================
+         * TUILES DEMANDÉES POUR LA VUE ACTUELLE
+         * =========================================================
+         */
+
+
+        let desiredTiles =
+            new Set();
+
+
+        /*
+         * =========================================================
+         * IDENTIFIANT TUILE
+         * =========================================================
+         */
+
+
+        function tileId(
+            tileX,
+            tileY
+        ) {
+
+            return (
+                tileX +
+                "/" +
+                tileY
+            );
+
+        }
+
+
+        /*
+         * =========================================================
+         * CRÉATION D'UNE TUILE WPLACE
          * =========================================================
          */
 
@@ -811,19 +899,19 @@
 
 
             const id =
-                "wplace-" +
-                tileX +
-                "-" +
-                tileY;
+                tileId(
+                    tileX,
+                    tileY
+                );
 
 
             /*
-             * Empêcher les doublons.
+             * Déjà présente.
              */
 
 
             if (
-                map.getSource(id)
+                loadedTiles.has(id)
             ) {
 
                 return;
@@ -832,23 +920,43 @@
 
 
             /*
-             * URL officielle des tuiles.
+             * Protection.
              */
 
 
+            if (
+                loadedTiles.size >=
+                MAX_LOADED_TILES
+            ) {
+
+                console.warn(
+                    "Limite de tuiles atteinte."
+                );
+
+                return;
+
+            }
+
+
+            const sourceId =
+                "wplace-" +
+                tileX +
+                "-" +
+                tileY;
+
+
+            const layerId =
+                sourceId +
+                "-layer";
+
+
             const url =
-                "https://backend.wplace.live" +
-                "/files/s0/tiles/" +
+                WPLACE_PROXY +
+                "/tile/" +
                 tileX +
                 "/" +
                 tileY +
                 ".png";
-
-
-            /*
-             * Coordonnées géographiques
-             * des quatre coins.
-             */
 
 
             const coordinates =
@@ -858,24 +966,15 @@
                 );
 
 
-            console.log(
-                "Ajout tuile WPlace :",
-                tileX,
-                tileY
-            );
-
-
             /*
-             * Source IMAGE MapLibre.
-             *
-             * Une source image permet de placer directement
-             * un PNG aux coordonnées géographiques voulues.
-             *
+             * Source image MapLibre.
              */
 
 
             map.addSource(
-                id,
+
+                sourceId,
+
                 {
 
                     type:
@@ -888,6 +987,7 @@
                         coordinates
 
                 }
+
             );
 
 
@@ -899,20 +999,19 @@
             map.addLayer({
 
                 id:
-                    id +
-                    "-layer",
+                    layerId,
 
                 type:
                     "raster",
 
                 source:
-                    id,
+                    sourceId,
 
                 minzoom:
-                    9,
+                    WPLACE_MIN_DISPLAY_ZOOM,
 
                 maxzoom:
-                    13,
+                    14,
 
                 paint:
                     {
@@ -928,12 +1027,28 @@
             });
 
 
-            loadedTiles.add(
-                id
+            loadedTiles.set(
+
+                id,
+
+                {
+
+                    tileX,
+                    tileY,
+
+                    sourceId,
+                    layerId
+
+                }
+
             );
 
 
-            updateTileCounter();
+            console.log(
+                "Tuile WPlace chargée :",
+                tileX,
+                tileY
+            );
 
 
         }
@@ -941,44 +1056,486 @@
 
         /*
          * =========================================================
-         * CHARGEMENT DU PREMIER TEST
+         * SUPPRESSION D'UNE TUILE
          * =========================================================
-         *
-         * On ne charge volontairement qu'une seule tuile.
-         *
-         * Cela permet de vérifier :
-         *
-         * 1. URL
-         * 2. PNG
-         * 3. CORS
-         * 4. projection
-         * 5. positionnement
-         *
          */
 
 
-        function loadTestTile() {
+        function removeWPlaceTile(
+            id
+        ) {
 
 
-            const tileX =
-                initialTile.tileX;
+            const tile =
+                loadedTiles.get(id);
 
 
-            const tileY =
-                initialTile.tileY;
+            if (
+                !tile
+            ) {
+
+                return;
+
+            }
+
+
+            /*
+             * Supprimer la couche.
+             */
+
+
+            if (
+                map.getLayer(
+                    tile.layerId
+                )
+            ) {
+
+                map.removeLayer(
+                    tile.layerId
+                );
+
+            }
+
+
+            /*
+             * Supprimer la source.
+             */
+
+
+            if (
+                map.getSource(
+                    tile.sourceId
+                )
+            ) {
+
+                map.removeSource(
+                    tile.sourceId
+                );
+
+            }
+
+
+            loadedTiles.delete(
+                id
+            );
 
 
             console.log(
-                "Tuile de test :",
-                tileX,
-                tileY
+                "Tuile WPlace retirée :",
+                tile.tileX,
+                tile.tileY
             );
 
+        }
 
-            addWPlaceTile(
-                tileX,
-                tileY
-            );
+
+        /*
+         * =========================================================
+         * CALCUL DES TUILES VISIBLES
+         * =========================================================
+         */
+
+
+        function getVisibleWPlaceTiles() {
+
+
+            const zoom =
+                map.getZoom();
+
+
+            /*
+             * Pas de pixels sous le seuil.
+             */
+
+
+            if (
+                zoom <
+                WPLACE_MIN_DISPLAY_ZOOM
+            ) {
+
+                return new Set();
+
+            }
+
+
+            const bounds =
+                map.getBounds();
+
+
+            /*
+             * Bornes géographiques.
+             */
+
+
+            let west =
+                bounds.getWest();
+
+
+            let east =
+                bounds.getEast();
+
+
+            let north =
+                bounds.getNorth();
+
+
+            let south =
+                bounds.getSouth();
+
+
+            /*
+             * Empêcher les coordonnées hors Web Mercator.
+             */
+
+
+            north =
+                Math.min(
+                    85.05112878,
+                    north
+                );
+
+
+            south =
+                Math.max(
+                    -85.05112878,
+                    south
+                );
+
+
+            /*
+             * Cas normal.
+             */
+
+
+            const worldWest =
+                longitudeToWorldX(
+                    west
+                );
+
+
+            const worldEast =
+                longitudeToWorldX(
+                    east
+                );
+
+
+            const worldNorth =
+                latitudeToWorldY(
+                    north
+                );
+
+
+            const worldSouth =
+                latitudeToWorldY(
+                    south
+                );
+
+
+            let minTileX =
+                Math.floor(
+                    worldWest /
+                    WPLACE_TILE_SIZE
+                );
+
+
+            let maxTileX =
+                Math.floor(
+                    worldEast /
+                    WPLACE_TILE_SIZE
+                );
+
+
+            let minTileY =
+                Math.floor(
+                    worldNorth /
+                    WPLACE_TILE_SIZE
+                );
+
+
+            let maxTileY =
+                Math.floor(
+                    worldSouth /
+                    WPLACE_TILE_SIZE
+                );
+
+
+            /*
+             * Marge.
+             */
+
+
+            minTileX -=
+                TILE_PADDING;
+
+
+            maxTileX +=
+                TILE_PADDING;
+
+
+            minTileY -=
+                TILE_PADDING;
+
+
+            maxTileY +=
+                TILE_PADDING;
+
+
+            /*
+             * Limites.
+             */
+
+
+            minTileX =
+                Math.max(
+                    0,
+                    minTileX
+                );
+
+
+            minTileY =
+                Math.max(
+                    0,
+                    minTileY
+                );
+
+
+            maxTileX =
+                Math.min(
+                    WPLACE_TILE_COUNT - 1,
+                    maxTileX
+                );
+
+
+            maxTileY =
+                Math.min(
+                    WPLACE_TILE_COUNT - 1,
+                    maxTileY
+                );
+
+
+            /*
+             * Construire l'ensemble.
+             */
+
+
+            const result =
+                new Set();
+
+
+            for (
+                let x =
+                    minTileX;
+
+                x <=
+                    maxTileX;
+
+                x++
+            ) {
+
+
+                for (
+                    let y =
+                        minTileY;
+
+                    y <=
+                        maxTileY;
+
+                    y++
+                ) {
+
+
+                    result.add(
+                        tileId(
+                            x,
+                            y
+                        )
+                    );
+
+                }
+
+            }
+
+
+            return result;
+
+        }
+
+
+        /*
+         * =========================================================
+         * MISE À JOUR DES TUILES
+         * =========================================================
+         */
+
+
+        function updateWPlaceTiles() {
+
+
+            const zoom =
+                map.getZoom();
+
+
+            /*
+             * Sous le niveau 9 :
+             *
+             * tout retirer.
+             */
+
+
+            if (
+                zoom <
+                WPLACE_MIN_DISPLAY_ZOOM
+            ) {
+
+
+                desiredTiles =
+                    new Set();
+
+
+                for (
+                    const id
+                    of loadedTiles.keys()
+                ) {
+
+                    removeWPlaceTile(
+                        id
+                    );
+
+                }
+
+
+                updateTileCounters();
+
+
+                document
+                    .getElementById(
+                        "status"
+                    )
+                    .textContent =
+                    "Carte géographique — zoom " +
+                    zoom.toFixed(1);
+
+
+                return;
+
+            }
+
+
+            /*
+             * Calcul des tuiles voulues.
+             */
+
+
+            desiredTiles =
+                getVisibleWPlaceTiles();
+
+
+            /*
+             * Sécurité :
+             *
+             * si la zone visible demande plus de 100 tuiles,
+             * on n'essaie pas de tout charger.
+             */
+
+
+            if (
+                desiredTiles.size >
+                MAX_LOADED_TILES
+            ) {
+
+                console.warn(
+                    "La vue demande",
+                    desiredTiles.size,
+                    "tuiles."
+                );
+
+
+                document
+                    .getElementById(
+                        "status"
+                    )
+                    .textContent =
+                    "Zone trop large — zoomez davantage";
+
+
+                return;
+
+            }
+
+
+            /*
+             * Charger les nouvelles tuiles.
+             */
+
+
+            for (
+                const id
+                of desiredTiles
+            ) {
+
+
+                if (
+                    loadedTiles.has(id)
+                ) {
+
+                    continue;
+
+                }
+
+
+                const parts =
+                    id.split(
+                        "/"
+                    );
+
+
+                const tileX =
+                    Number(
+                        parts[0]
+                    );
+
+
+                const tileY =
+                    Number(
+                        parts[1]
+                    );
+
+
+                addWPlaceTile(
+                    tileX,
+                    tileY
+                );
+
+            }
+
+
+            /*
+             * Retirer les tuiles qui ne sont plus nécessaires.
+             */
+
+
+            for (
+                const id
+                of loadedTiles.keys()
+            ) {
+
+
+                if (
+                    !desiredTiles.has(id)
+                ) {
+
+                    removeWPlaceTile(
+                        id
+                    );
+
+                }
+
+            }
+
+
+            /*
+             * Statut.
+             */
 
 
             document
@@ -986,25 +1543,36 @@
                     "status"
                 )
                 .textContent =
-                "Tuile WPlace de test chargée";
+                "Pixels WPlace actifs — zoom " +
+                zoom.toFixed(1);
 
+
+            updateTileCounters();
 
         }
 
 
         /*
          * =========================================================
-         * COMPTEUR
+         * COMPTEURS
          * =========================================================
          */
 
 
-        function updateTileCounter() {
+        function updateTileCounters() {
 
 
             document
                 .getElementById(
-                    "tiles"
+                    "visibleTiles"
+                )
+                .textContent =
+                desiredTiles.size;
+
+
+            document
+                .getElementById(
+                    "loadedTiles"
                 )
                 .textContent =
                 loadedTiles.size;
@@ -1076,18 +1644,23 @@
                 " / " +
                 wplace.pixelY;
 
+
+            updateTileCounters();
+
         }
 
 
         /*
          * =========================================================
-         * POSITION DE LA SOURIS
+         * SOURIS
          * =========================================================
          */
 
 
         map.on(
+
             "mousemove",
+
             function (
                 event
             ) {
@@ -1117,94 +1690,88 @@
                         "coordinates"
                     )
                     .textContent =
+
                     "Tuile " +
                     wplace.tileX +
                     " / " +
                     wplace.tileY +
+
                     "   Pixel " +
                     wplace.pixelX +
                     " / " +
                     wplace.pixelY;
 
-
             }
+
         );
 
 
         /*
          * =========================================================
-         * DÉPLACEMENT
+         * DÉPLACEMENT TERMINÉ
          * =========================================================
          */
 
 
         map.on(
-            "move",
+
+            "moveend",
+
             function () {
 
                 updateInterface();
 
+                updateWPlaceTiles();
+
             }
+
         );
 
 
         /*
          * =========================================================
-         * ZOOM
+         * ZOOM TERMINÉ
          * =========================================================
          */
 
 
         map.on(
-            "zoom",
+
+            "zoomend",
+
             function () {
 
                 updateInterface();
 
-
-                const zoom =
-                    map.getZoom();
-
-
-                if (
-                    zoom >= 9
-                ) {
-
-                    document
-                        .getElementById(
-                            "status"
-                        )
-                        .textContent =
-                        "Pixels WPlace actifs — zoom " +
-                        zoom.toFixed(1);
-
-                }
-                else {
-
-                    document
-                        .getElementById(
-                            "status"
-                        )
-                        .textContent =
-                        "Carte WPlace — zoom " +
-                        zoom.toFixed(1);
-
-                }
+                updateWPlaceTiles();
 
             }
+
         );
 
 
         /*
          * =========================================================
-         * CARTE PRÊTE
+         * CHARGEMENT DE LA CARTE
          * =========================================================
          */
 
 
         map.on(
+
             "load",
+
             function () {
+
+
+                console.log(
+                    "========================================"
+                );
+
+
+                console.log(
+                    "WPlace Bergamottto"
+                );
 
 
                 console.log(
@@ -1212,30 +1779,86 @@
                 );
 
 
-                updateInterface();
+                console.log(
+                    "Monde WPlace :",
+                    WPLACE_WORLD_SIZE,
+                    "×",
+                    WPLACE_WORLD_SIZE
+                );
+
+
+                console.log(
+                    "Zoom natif :",
+                    WPLACE_NATIVE_ZOOM
+                );
+
+
+                console.log(
+                    "Proxy :",
+                    WPLACE_PROXY
+                );
+
+
+                console.log(
+                    "Affichage WPlace à partir du zoom :",
+                    WPLACE_MIN_DISPLAY_ZOOM
+                );
+
+
+                console.log(
+                    "Limite simultanée :",
+                    MAX_LOADED_TILES,
+                    "tuiles"
+                );
+
+
+                console.log(
+                    "========================================"
+                );
 
 
                 /*
-                 * Chargement de la tuile WPlace.
+                 * Forcer la carte en 2D.
                  */
 
 
-                loadTestTile();
+                map.setBearing(
+                    0
+                );
+
+
+                map.setPitch(
+                    0
+                );
+
+
+                /*
+                 * Première mise à jour.
+                 */
+
+
+                updateInterface();
+
+
+                updateWPlaceTiles();
 
 
             }
+
         );
 
 
         /*
          * =========================================================
-         * ERREURS
+         * ERREURS MAPLIBRE
          * =========================================================
          */
 
 
         map.on(
+
             "error",
+
             function (
                 event
             ) {
@@ -1246,6 +1869,7 @@
                 );
 
             }
+
         );
 
 
