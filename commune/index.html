@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>WPlace La Commune — Administration</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#0b0b0b;color:#eee;font-family:Arial,Helvetica,sans-serif}body{overflow-x:hidden}
+.hidden{display:none!important}
+#gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 50% 30%,#252525 0,#111 55%,#090909 100%)}
+.card{width:min(480px,100%);padding:30px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(15,15,15,.96);box-shadow:0 12px 50px rgba(0,0,0,.55);text-align:center}.brand{font-size:23px;font-weight:bold}.sub{margin-top:8px;color:#999;font-size:12px;line-height:1.5}.btn{border:1px solid rgba(88,101,242,.9);border-radius:7px;background:#5865f2;color:#fff;padding:11px 16px;font-weight:bold;cursor:pointer}.btn:hover{background:#6975f5}
+#app{min-height:100vh}.top{height:66px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid rgba(255,255,255,.1);background:#111;position:sticky;top:0;z-index:10}.top h1{font-size:17px;margin:0}.top small{display:block;color:#777;font-size:10px;margin-top:3px}.top-actions{display:flex;align-items:center;gap:8px}.role{padding:6px 9px;border:1px solid rgba(255,255,255,.12);border-radius:5px;background:#1b1b1b;color:#ccc;font:10px Consolas,monospace}.back{padding:7px 9px;border:1px solid rgba(255,255,255,.1);border-radius:5px;background:#1b1b1b;color:#aaa;text-decoration:none;font-size:10px}.back:hover{color:#fff;background:#252525}
+.layout{display:flex;min-height:calc(100vh - 66px)}nav{width:220px;border-right:1px solid rgba(255,255,255,.08);padding:18px 12px;background:#101010}.navbtn{display:block;width:100%;margin-bottom:6px;padding:10px 11px;text-align:left;border:1px solid transparent;border-radius:6px;background:transparent;color:#999;cursor:pointer;font-size:11px}.navbtn:hover{background:#1a1a1a;color:#ddd}.navbtn.active{background:rgba(230,200,79,.08);border-color:rgba(230,200,79,.22);color:#fff}
+.main{flex:1;padding:24px;max-width:1250px}.section{display:none}.section.active{display:block}.section h2{font-size:18px;margin:0 0 5px}.section>p{color:#777;font-size:11px;margin:0 0 20px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.stat{padding:15px;border:1px solid rgba(255,255,255,.09);border-radius:8px;background:#141414}.stat label{display:block;color:#777;font-size:9px;text-transform:uppercase;letter-spacing:.8px}.stat strong{display:block;margin-top:7px;font-size:22px}.panel{margin-top:14px;padding:16px;border:1px solid rgba(255,255,255,.09);border-radius:8px;background:#121212}.panel-title{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}.zone{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06)}.zone:last-child{border-bottom:0}.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}.zone-main{flex:1;min-width:0}.zone-name{font-size:12px;font-weight:bold}.zone-meta{margin-top:3px;color:#777;font:9px Consolas,monospace}.tag{padding:4px 7px;border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#999;font-size:9px;white-space:nowrap}.empty{color:#666;font-size:11px;padding:12px 0}.status{margin-top:12px;color:#777;font:10px Consolas,monospace}.error{padding:10px;border:1px solid rgba(229,57,53,.3);border-radius:6px;background:rgba(229,57,53,.06);color:#d99;font-size:11px}.notice{padding:11px;border:1px solid rgba(230,200,79,.18);border-radius:7px;background:rgba(230,200,79,.05);color:#aaa;font-size:10px;line-height:1.5}.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px}.refresh{border:1px solid rgba(255,255,255,.1);border-radius:5px;background:#1b1b1b;color:#aaa;padding:7px 9px;cursor:pointer;font-size:10px}.refresh:hover{color:#fff;background:#252525}
+@media(max-width:800px){.layout{display:block}nav{width:100%;display:flex;gap:5px;overflow:auto;border-right:0;border-bottom:1px solid rgba(255,255,255,.08);padding:10px}.navbtn{min-width:max-content;margin:0}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.main{padding:16px}.top{padding:0 16px}.top-actions{gap:5px}.back{display:none}}
+</style>
+</head>
+<body>
+<div id="gate"><div class="card"><div class="brand">WPlace La Commune</div><div id="gate-title" class="sub">Vérification de votre accès à l'administration…</div><div id="gate-error" class="error hidden"></div><button id="login" class="btn hidden" type="button">SE CONNECTER AVEC DISCORD</button></div></div>
+
+<div id="app" class="hidden">
+<header class="top"><div><h1>Administration — WPlace La Commune</h1><small id="user">—</small></div><div class="top-actions"><a class="back" href="../">← Carte</a><div id="role" class="role">—</div></div></header>
+<div class="layout"><nav>
+<button class="navbtn active" data-section="dashboard">Vue d'ensemble</button>
+<button class="navbtn" data-section="zones">Zones</button>
+<button class="navbtn" data-section="moderators" id="nav-moderators">Modérateurs</button>
+<button class="navbtn" data-section="templates">Templates</button>
+<button class="navbtn" data-section="operations">Opérations</button>
+<button class="navbtn" data-section="alerts">Alertes</button>
+<button class="navbtn" data-section="history">Historique</button>
+<button class="navbtn" data-section="logs">Logs</button>
+</nav><main class="main">
+<section id="dashboard" class="section active"><div class="section-head"><div><h2>Vue d'ensemble</h2><p>Centre de contrôle de La Commune.</p></div><button class="refresh" id="refresh">Actualiser</button></div><div class="grid"><div class="stat"><label>Zones actives</label><strong id="count-zones">—</strong></div><div class="stat"><label>Templates actifs</label><strong id="count-templates">—</strong></div><div class="stat"><label>Opérations</label><strong id="count-operations">—</strong></div><div class="stat"><label>Alertes</label><strong id="count-alerts">—</strong></div></div><div class="panel"><div class="panel-title">État du système</div><div id="system-state" class="empty">Chargement…</div></div></section>
+<section id="zones" class="section"><h2>Zones</h2><p>Zones accessibles selon votre niveau d'administration.</p><div class="panel"><div id="zones-list" class="empty">Chargement…</div></div></section>
+<section id="moderators" class="section"><h2>Modérateurs</h2><p>Affectations modérateur ↔ zone.</p><div class="panel"><div id="moderators-list" class="empty">Chargement…</div></div><div class="notice">La modification des affectations sera ajoutée après validation de cette interface en lecture seule.</div></section>
+<section id="templates" class="section"><h2>Templates</h2><p>Templates actuellement associés aux zones accessibles.</p><div class="panel"><div id="templates-list" class="empty">Chargement…</div></div><div class="notice">L'upload des fichiers .wplace vers R2 sera ajouté dans une étape dédiée.</div></section>
+<section id="operations" class="section"><h2>Opérations</h2><p>Planification et suivi des opérations offensives et défensives.</p><div class="panel"><div class="empty">Gestion des opérations — prochaine étape.</div></div></section>
+<section id="alerts" class="section"><h2>Alertes</h2><p>Alertes RadarBot, Discord et système.</p><div class="panel"><div class="empty">Gestion des alertes — prochaine étape.</div></div></section>
+<section id="history" class="section"><h2>Historique</h2><p>Versions des zones et templates, avec restauration.</p><div class="panel"><div class="empty">Historique — prochaine étape.</div></div></section>
+<section id="logs" class="section"><h2>Logs d'administration</h2><p>Actions autorisées, refusées et erreurs.</p><div class="panel"><div class="empty">Logs — prochaine étape.</div></div></section>
+</main></div></div>
+
+<script>
+const API="https://wplace-commune-api-dev.mathieu-peter.workers.dev";
+function token(){try{return sessionStorage.getItem("wplace_session")}catch{return null}}
+function authOptions(){const t=token();return t?{headers:{Authorization:"Bearer "+t},cache:"no-store"}:{credentials:"include",cache:"no-store"}}
+async function getJson(path){const r=await fetch(API+path,authOptions());let d=null;try{d=await r.json()}catch{}if(!r.ok)throw new Error("HTTP "+r.status);return d}
+function showError(message,login=false){document.getElementById("gate-title").textContent="Accès refusé";const e=document.getElementById("gate-error");e.textContent=message;e.classList.remove("hidden");if(login)document.getElementById("login").classList.remove("hidden")}
+function roleName(r){return r==="admin"?"Admin":r==="moderator"?"Modérateur":"Membre"}
+function renderZones(zones){const el=document.getElementById("zones-list");el.innerHTML="";if(!zones?.length){el.textContent="Aucune zone accessible.";return}for(const z of zones){const row=document.createElement("div");row.className="zone";const dot=document.createElement("span");dot.className="dot";dot.style.background=z.category_color||"#888";const main=document.createElement("div");main.className="zone-main";const n=document.createElement("div");n.className="zone-name";n.textContent=z.name;const m=document.createElement("div");m.className="zone-meta";m.textContent=(z.slug||z.id)+" · v"+(z.version??"—")+" · "+(z.country||"—")+" / "+(z.continent||"—")+" · "+(z.moderator_count??0)+" mod.";main.append(n,m);const tag=document.createElement("span");tag.className="tag";tag.textContent=z.category_name||z.category_slug||"—";row.append(dot,main,tag);el.appendChild(row)}}
+function renderModerators(items){const el=document.getElementById("moderators-list");el.innerHTML="";if(!items?.length){el.textContent="Aucune affectation de modérateur.";return}for(const item of items){const row=document.createElement("div");row.className="zone";const main=document.createElement("div");main.className="zone-main";const n=document.createElement("div");n.className="zone-name";n.textContent=item.zone_name||("Zone "+item.zone_id);const m=document.createElement("div");m.className="zone-meta";m.textContent="Discord ID : "+item.discord_user_id+" · affecté par : "+(item.assigned_by||"—");main.append(n,m);row.append(main);el.appendChild(row)}}
+async function renderTemplates(zones){const el=document.getElementById("templates-list");el.innerHTML="";let total=0;for(const z of zones||[]){try{const ts=await getJson("/api/zones/"+encodeURIComponent(z.slug||z.id)+"/templates");if(!Array.isArray(ts))continue;for(const t of ts){total++;const row=document.createElement("div");row.className="zone";const main=document.createElement("div");main.className="zone-main";const n=document.createElement("div");n.className="zone-name";n.textContent=t.name||t.slug||"Template";const m=document.createElement("div");m.className="zone-meta";m.textContent=z.name+" · "+(t.slug||"—")+" · v"+(t.version??"—");main.append(n,m);const tag=document.createElement("span");tag.className="tag";tag.textContent=t.status||"—";row.append(main,tag);el.appendChild(row)}}catch(e){console.warn("Templates",z.slug,e)}}if(!total)el.textContent="Aucun template accessible.";return total}
+async function load(){
+ document.getElementById("system-state").textContent="Chargement…";
+ try{
+  const me=await getJson("/api/auth/me");
+  if(!me.authenticated)throw new Error("AUTH");
+  if(!["admin","moderator"].includes(me.access)){showError("Cette interface est réservée aux administrateurs et modérateurs.");return}
+  document.getElementById("gate").classList.add("hidden");document.getElementById("app").classList.remove("hidden");
+  document.getElementById("user").textContent=me.user?.global_name||me.user?.username||me.user?.id||"Utilisateur Discord";
+  document.getElementById("role").textContent=roleName(me.access);
+  if(me.access!=="admin")document.getElementById("nav-moderators").classList.add("hidden");
+  const overview=await getJson("/api/admin/overview");
+  const zones=await getJson("/api/admin/zones");
+  document.getElementById("count-zones").textContent=overview.counts?.zones??zones.length;
+  document.getElementById("count-templates").textContent=overview.counts?.templates??"—";
+  document.getElementById("count-operations").textContent=overview.counts?.operations??"—";
+  document.getElementById("count-alerts").textContent=overview.counts?.alerts??"—";
+  renderZones(zones);
+  const total=await renderTemplates(zones);
+  document.getElementById("count-templates").textContent=total;
+  if(me.access==="admin"){
+   try{renderModerators(await getJson("/api/admin/moderators"))}catch(e){document.getElementById("moderators-list").textContent="Impossible de charger les affectations.";console.warn(e)}
+  }
+  document.getElementById("system-state").textContent="Session Discord valide · accès "+roleName(me.access)+" · API admin opérationnelle · "+zones.length+" zone(s) accessible(s) · "+total+" template(s) accessible(s).";
+ }catch(e){
+  console.error(e);
+  document.getElementById("app").classList.add("hidden");document.getElementById("gate").classList.remove("hidden");
+  if(e.message==="HTTP 401"||e.message==="AUTH")showError("Votre session Discord est absente ou expirée.",true);else showError("Impossible de charger l'administration. Vérifiez le Worker DEV et réessayez.");
+ }
+}
+document.querySelectorAll(".navbtn").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".navbtn").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.getElementById(b.dataset.section).classList.add("active")}));
+document.getElementById("refresh").onclick=()=>load();
+document.getElementById("login").onclick=()=>location.href=API+"/auth/discord";
+load();
+</script>
+</body>
+</html>
