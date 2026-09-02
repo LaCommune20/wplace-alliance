@@ -201,9 +201,13 @@
       }
 
       try {
+        const requestOptions = typeof authFetchOptions === "function"
+          ? authFetchOptions()
+          : { credentials: "include", cache: "no-store" };
+
         const response = await fetch(
           ZONES_API_URL + "/" + encodeURIComponent(identifier) + "/templates",
-          { cache: "no-store" }
+          requestOptions
         );
 
         if (!response.ok) {
