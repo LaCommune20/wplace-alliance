@@ -17,44 +17,170 @@
 #zone-filter-row{display:flex;align-items:center;gap:8px;margin:12px 0 10px;padding:10px;background:rgba(230,200,79,.06);border:1px solid rgba(230,200,79,.15);border-radius:7px}#zone-filter-row input{accent-color:#e6c84f;cursor:pointer}#zone-filter-label{font-size:11px;color:#bbb;line-height:1.4}#zone-info{color:#777;font-size:10px;line-height:1.5;border-top:1px solid rgba(255,255,255,.08);padding-top:10px}.future-tab{margin-top:7px;padding:9px 10px;border-radius:6px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);color:#666;font-size:11px}
 #status,#coordinates{position:absolute;bottom:15px;z-index:1000;padding:8px 12px;border-radius:6px;color:#aaa;font:11px Consolas,monospace;pointer-events:none}#status{left:15px}#coordinates{right:15px}.maplibregl-ctrl-attrib{background:rgba(0,0,0,.65)!important;color:#aaa}.maplibregl-ctrl-attrib a{color:#ddd}.maplibregl-ctrl-group{background:rgba(20,20,20,.9)!important}.maplibregl-ctrl-group button{filter:invert(1)}
 @media(max-width:700px){#panel{min-width:250px;max-width:calc(100vw - 30px)}#zones-tab{left:15px;top:150px;width:250px}#zones-panel{left:15px;top:195px;width:min(330px,calc(100vw - 30px));max-height:calc(100vh - 215px)}}
+
+#auth-gate{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 50% 35%,#252525 0,#111 55%,#090909 100%);color:#fff}
+#auth-card{width:min(430px,100%);padding:30px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(15,15,15,.96);box-shadow:0 12px 50px rgba(0,0,0,.55);text-align:center}
+#auth-brand{font-size:23px;font-weight:bold;letter-spacing:.2px}
+#auth-title{margin-top:10px;font-size:17px;font-weight:bold}
+#auth-message{margin:9px 0 20px;color:#999;font-size:12px;line-height:1.6}
+#auth-login{display:inline-flex;align-items:center;justify-content:center;width:100%;min-height:42px;border:1px solid rgba(88,101,242,.9);border-radius:7px;background:#5865f2;color:#fff;font-size:13px;font-weight:bold;cursor:pointer}
+#auth-login:hover{background:#6975f5}
+#auth-login:disabled{opacity:.6;cursor:wait}
+#auth-error{display:none;margin-top:14px;padding:10px;border:1px solid rgba(229,57,53,.35);border-radius:7px;background:rgba(229,57,53,.08);color:#f0a3a0;font-size:11px;line-height:1.5}
+#auth-refusal{display:none}
+#auth-user{display:none;margin-top:14px;color:#777;font:10px Consolas,monospace}
+#app{display:none;width:100%;height:100%}
 </style>
 </head>
 <body>
+<div id="auth-gate">
+  <div id="auth-card">
+    <div id="auth-brand">WPlace La Commune</div>
+    <div id="auth-title">Accès à la carte tactique</div>
+    <div id="auth-message">Cette carte est réservée aux membres du serveur Discord de La Commune.</div>
+    <button id="auth-login" type="button">SE CONNECTER AVEC DISCORD</button>
+    <div id="auth-error"></div>
+    <div id="auth-user"></div>
+    <div id="auth-refusal">
+      <div id="auth-title">Accès refusé</div>
+      <div id="auth-message">Votre compte Discord n'est pas membre du serveur autorisé.</div>
+    </div>
+  </div>
+</div>
+<div id="app">
 <div id="map"></div>
 <div id="panel"><div id="title">WPlace Bergamottto</div><div id="subtitle">Carte tactique de La Commune et de ses alliés</div><div id="info">Zoom : <span id="zoom">—</span><br>Tuile WPlace : <span id="tile">—</span><br>Pixel : <span id="pixel">—</span><br>Tuiles visibles : <span id="visibleTiles">0</span><br>Tuiles en mémoire : <span id="loadedTiles">0</span></div></div>
 <button id="zones-tab" type="button" aria-expanded="false">ZONES</button>
 <div id="zones-panel"><div class="panel-section-title">Contrôle des zones</div><div id="zone-filter-row"><input id="zone-filter" type="checkbox"><label id="zone-filter-label" for="zone-filter">Limiter l'affichage WPlace aux zones sélectionnées</label></div><div class="zone-legend"><span><i style="background:#e53935"></i>La Commune</span><span><i style="background:#00d9ff"></i>Alliés sympathisants</span><span><i style="background:#111;border-color:#777"></i>Alliés neutres</span></div><div class="zone-overall" id="zone-overall-filter"><button type="button" data-type="all" class="active">Tout</button><button type="button" data-type="allie-neutre">Alliés neutres</button><button type="button" data-type="sympathisant">Alliés sympathisants</button><button type="button" data-type="commune">La Commune</button></div><div id="zones-list"></div><div id="zone-info">Filtre actif : les tuiles WPlace sont limitées aux zones cochées lorsque l'option est activée.<br><br>Chaque zone possède un périmètre précis défini par une suite de points WPlace. Le périmètre est affiché directement sur la carte.</div><div class="future-tab">ALERTES — emplacement réservé</div><div class="future-tab">ATTAQUES — emplacement réservé</div></div>
-<div id="status">Chargement des zones D1...</div><div id="coordinates">Tuile — / — &nbsp; Pixel — / —</div>
+<div id="status">Chargement...</div><div id="coordinates">Tuile — / — &nbsp; Pixel — / —</div>
+</div>
 <script>
 const WPLACE_TILE_COUNT=2048,WPLACE_TILE_SIZE=1000,WPLACE_WORLD_SIZE=2048000,WPLACE_NATIVE_ZOOM=11,WPLACE_MIN_DISPLAY_ZOOM=9,TILE_PADDING=1,MAX_LOADED_TILES=100;
 const WPLACE_PROXY="https://wplace-commune-proxy.mathieu-peter.workers.dev",INITIAL_LONGITUDE=5.93,INITIAL_LATITUDE=43.12,INITIAL_ZOOM=9;
 const ZONES_API_URL="https://wplace-commune-api-dev.mathieu-peter.workers.dev/api/zones";
+const AUTH_ME_URL="https://wplace-commune-api-dev.mathieu-peter.workers.dev/api/auth/me";
+const AUTH_LOGIN_URL="https://wplace-commune-api-dev.mathieu-peter.workers.dev/auth/discord";
 const ALLIANCE_ZONES=[];
-const selectedZones=new Set();let zoneFilterEnabled=false;let overallTypeFilter="all";
-function longitudeToWorldX(l){return((l+180)/360)*WPLACE_WORLD_SIZE}function latitudeToWorldY(l){const r=l*Math.PI/180,m=Math.log(Math.tan(Math.PI/4+r/2));return((1-m/Math.PI)/2)*WPLACE_WORLD_SIZE}function worldXToLongitude(x){return x/WPLACE_WORLD_SIZE*360-180}function worldYToLatitude(y){return Math.atan(Math.sinh(Math.PI*(1-2*y/WPLACE_WORLD_SIZE)))*180/Math.PI}
+const selectedZones=new Set();let zoneFilterEnabled=false;let overallTypeFilter="all";let map=null;
+
+function setAuthState(title,message,showLogin=false,error=null,refusal=false){
+  const titleEl=document.getElementById("auth-title"),messageEl=document.getElementById("auth-message"),login=document.getElementById("auth-login"),errorEl=document.getElementById("auth-error"),refusalEl=document.getElementById("auth-refusal");
+  titleEl.textContent=title;messageEl.textContent=message;login.style.display=showLogin?"inline-flex":"none";errorEl.style.display=error?"block":"none";errorEl.textContent=error||"";refusalEl.style.display=refusal?"block":"none";
+}
+function showMap(){document.getElementById("auth-gate").style.display="none";document.getElementById("app").style.display="block"}
+function loadZoneDetailsScript(){const s=document.createElement("script");s.src="zone-details.js";s.async=false;document.body.appendChild(s)}
+function getSessionToken(){
+  try {
+    const hash=window.location.hash.startsWith("#")?window.location.hash.slice(1):window.location.hash;
+    const params=new URLSearchParams(hash);
+    const token=params.get("wplace_session");
+    if(token){
+      sessionStorage.setItem("wplace_session",token);
+      window.history.replaceState({},document.title,window.location.pathname+window.location.search);
+      return token;
+    }
+    return sessionStorage.getItem("wplace_session");
+  } catch { return null; }
+}
+
+function authFetchOptions(){
+  const token=getSessionToken();
+  return token ? {headers:{Authorization:`Bearer ${token}`},cache:"no-store"} : {credentials:"include",cache:"no-store"};
+}
+
+async function checkAuthentication(){
+  setAuthState("Vérification de l'accès…","Vérification de votre session Discord.");
+  try{
+    const response=await fetch(AUTH_ME_URL,authFetchOptions());
+    let data=null;
+    try{data=await response.json()}catch{data=null}
+    if(response.status===401||!data?.authenticated){
+      const reason=new URLSearchParams(window.location.search).get("auth");
+      if(reason==="not-member")setAuthState("Accès refusé","Votre compte Discord n'est pas membre du serveur autorisé.");
+      else if(reason==="denied")setAuthState("Connexion annulée","La connexion Discord a été annulée.",true);
+      else if(reason==="error")setAuthState("Connexion impossible","Discord n'a pas pu finaliser la connexion.",true);
+      else setAuthState("Accès à la carte tactique","Connectez-vous avec Discord pour vérifier votre appartenance au serveur.",true);
+      return false;
+    }
+    if(!response.ok)throw new Error("HTTP "+response.status);
+    if(!["member","moderator","admin"].includes(data.access)){
+      setAuthState("Accès refusé","Votre compte Discord n'est pas membre du serveur autorisé.",false,null,true);
+      return false;
+    }
+    const user=data.user||{};
+    document.getElementById("auth-user").textContent=(user.username||user.id||"Utilisateur Discord")+" · accès "+(data.access==="admin"?"Admin":data.access==="moderator"?"Modérateur":"Membre");
+    if(window.location.search)window.history.replaceState({},document.title,window.location.pathname);
+    showMap();
+    initMap();
+    return true;
+  }catch(error){
+    console.error("Erreur de vérification d'authentification :",error);
+    setAuthState("Service d'authentification indisponible","Impossible de vérifier votre session pour le moment.",true,"Le serveur d'authentification ne répond pas correctement. Réessayez.");
+    return false;
+  }
+}
+document.getElementById("auth-login").onclick=()=>{window.location.href=AUTH_LOGIN_URL};
+(async()=>{await checkAuthentication()})();
+
+function longitudeToWorldX(l){return((l+180)/360)*WPLACE_WORLD_SIZE}
+function latitudeToWorldY(l){const r=l*Math.PI/180,m=Math.log(Math.tan(Math.PI/4+r/2));return((1-m/Math.PI)/2)*WPLACE_WORLD_SIZE}
+function worldXToLongitude(x){return x/WPLACE_WORLD_SIZE*360-180}
+function worldYToLatitude(y){return Math.atan(Math.sinh(Math.PI*(1-2*y/WPLACE_WORLD_SIZE)))*180/Math.PI}
 function worldToWplace(x,y){let tx=Math.floor(x/1000),ty=Math.floor(y/1000),px=Math.floor(x-tx*1000),py=Math.floor(y-ty*1000);tx=Math.max(0,Math.min(2047,tx));ty=Math.max(0,Math.min(2047,ty));return{tileX:tx,tileY:ty,pixelX:px,pixelY:py}}
-function tileId(x,y){return x+"/"+y}function getTileCoordinates(x,y){const w=x*1000,e=(x+1)*1000,n=y*1000,s=(y+1)*1000;return[[worldXToLongitude(w),worldYToLatitude(n)],[worldXToLongitude(e),worldYToLatitude(n)],[worldXToLongitude(e),worldYToLatitude(s)],[worldXToLongitude(w),worldYToLatitude(s)]]}
-function zonePolygon(z){return [[...z.points.map(p=>[p[1],p[0]]),[z.points[0][1],z.points[0][0]]]];}
+function tileId(x,y){return x+"/"+y}
+function getTileCoordinates(x,y){const w=x*1000,e=(x+1)*1000,n=y*1000,s=(y+1)*1000;return[[worldXToLongitude(w),worldYToLatitude(n)],[worldXToLongitude(e),worldYToLatitude(n)],[worldXToLongitude(e),worldYToLatitude(s)],[worldXToLongitude(w),worldYToLatitude(s)]]}
+function zonePolygon(z){return [[...z.points.map(p=>[p[1],p[0]]),[z.points[0][1],z.points[0][0]]]]}
 function zoneColor(z){return z.color||"#aaaaaa"}
 function getVisibleZonesByOverallFilter(){return overallTypeFilter==="all"?ALLIANCE_ZONES:ALLIANCE_ZONES.filter(z=>z.type===overallTypeFilter)}
-function renderZoneBoundaries(){const data={type:"FeatureCollection",features:getVisibleZonesByOverallFilter().map(z=>({type:"Feature",properties:{id:z.id,name:z.name,type:z.type,color:zoneColor(z)},geometry:{type:"Polygon",coordinates:zonePolygon(z)}}))};const source=map.getSource("alliance-zones");if(source){source.setData(data);return}if(!map.isStyleLoaded())return;map.addSource("alliance-zones",{type:"geojson",data});map.addLayer({id:"alliance-zones-fill",type:"fill",source:"alliance-zones",paint:{"fill-color":["get","color"],"fill-opacity":["interpolate",["linear"],["zoom"],8.5,.18,9.5,.14,11,.08,13,.035]}});map.addLayer({id:"alliance-zones-casing",type:"line",source:"alliance-zones",paint:{"line-color":"#ffffff","line-width":["interpolate",["linear"],["zoom"],8.5,7,10,6,13,4],"line-opacity":.9}});map.addLayer({id:"alliance-zones-line",type:"line",source:"alliance-zones",paint:{"line-color":["get","color"],"line-width":["interpolate",["linear"],["zoom"],8.5,4.5,10,3.5,13,2.5],"line-opacity":1,"line-dasharray":[3,2]}});map.addLayer({id:"alliance-zones-labels",type:"symbol",source:"alliance-zones",minzoom:8.8,layout:{"text-field":["get","name"],"text-size":["interpolate",["linear"],["zoom"],8.8,9,12,14],"text-font":["Open Sans Bold"],"text-anchor":"center","text-allow-overlap":false},paint:{"text-color":["get","color"],"text-halo-color":"#ffffff","text-halo-width":2}});if(map.getLayer("alliance-zones-casing"))map.moveLayer("alliance-zones-casing");if(map.getLayer("alliance-zones-line"))map.moveLayer("alliance-zones-line");if(map.getLayer("alliance-zones-labels"))map.moveLayer("alliance-zones-labels")}
-function renderZonePanel(){const list=document.getElementById("zones-list");list.innerHTML="";const continents=new Map();getVisibleZonesByOverallFilter().forEach(z=>{const continent=z.continent||"Autres";const country=z.country||"Autre";if(!continents.has(continent))continents.set(continent,new Map());if(!continents.get(continent).has(country))continents.get(continent).set(country,[]);continents.get(continent).get(country).push(z)});continents.forEach((countries,continent)=>{const continentTitle=document.createElement("div");continentTitle.className="zone-group-continent";continentTitle.textContent=continent;list.appendChild(continentTitle);countries.forEach((zones,country)=>{const countryTitle=document.createElement("div");countryTitle.className="zone-group-country";countryTitle.textContent=country;list.appendChild(countryTitle);zones.forEach(z=>{const card=document.createElement("div");card.className="zone-card";const swatch=document.createElement("span");swatch.className="zone-swatch";swatch.style.background=zoneColor(z);swatch.style.borderColor=z.type==="allie-neutre"?"#777":zoneColor(z);const cb=document.createElement("input");cb.type="checkbox";cb.className="zone-check";cb.checked=selectedZones.has(z.id);cb.title="Sélectionner cette zone";cb.onchange=()=>{cb.checked?selectedZones.add(z.id):selectedZones.delete(z.id);updateWPlaceTiles()};const main=document.createElement("div");main.className="zone-main";const name=document.createElement("div");name.className="zone-name";name.textContent=z.name;const meta=document.createElement("div");meta.className="zone-meta";meta.textContent=(z.description||"")+" · "+z.points.length+" points";main.append(name,meta);const focus=document.createElement("button");focus.type="button";focus.className="zone-focus";focus.textContent="CENTRER";focus.onclick=()=>map.flyTo({center:z.center,zoom:z.zoom,duration:700});card.append(swatch,cb,main,focus);list.appendChild(card)})})})}
+function renderZoneBoundaries(){
+  const data={type:"FeatureCollection",features:getVisibleZonesByOverallFilter().map(z=>({type:"Feature",properties:{id:z.id,name:z.name,type:z.type,color:zoneColor(z)},geometry:{type:"Polygon",coordinates:zonePolygon(z)}}))};
+  const source=map.getSource("alliance-zones");
+  if(source){source.setData(data);return}
+  if(!map.isStyleLoaded())return;
+  map.addSource("alliance-zones",{type:"geojson",data});
+  map.addLayer({id:"alliance-zones-fill",type:"fill",source:"alliance-zones",paint:{"fill-color":["get","color"],"fill-opacity":["interpolate",["linear"],["zoom"],8.5,.18,9.5,.14,11,.08,13,.035]}});
+  map.addLayer({id:"alliance-zones-casing",type:"line",source:"alliance-zones",paint:{"line-color":"#ffffff","line-width":["interpolate",["linear"],["zoom"],8.5,7,10,6,13,4],"line-opacity":.9}});
+  map.addLayer({id:"alliance-zones-line",type:"line",source:"alliance-zones",paint:{"line-color":["get","color"],"line-width":["interpolate",["linear"],["zoom"],8.5,4.5,10,3.5,13,2.5],"line-opacity":1,"line-dasharray":[3,2]}});
+  map.addLayer({id:"alliance-zones-labels",type:"symbol",source:"alliance-zones",minzoom:8.8,layout:{"text-field":["get","name"],"text-size":["interpolate",["linear"],["zoom"],8.8,9,12,14],"text-font":["Open Sans Bold"],"text-anchor":"center","text-allow-overlap":false},paint:{"text-color":["get","color"],"text-halo-color":"#ffffff","text-halo-width":2}});
+  if(map.getLayer("alliance-zones-casing"))map.moveLayer("alliance-zones-casing");
+  if(map.getLayer("alliance-zones-line"))map.moveLayer("alliance-zones-line");
+  if(map.getLayer("alliance-zones-labels"))map.moveLayer("alliance-zones-labels");
+}
+function renderZonePanel(){
+  const list=document.getElementById("zones-list");list.innerHTML="";const continents=new Map();
+  getVisibleZonesByOverallFilter().forEach(z=>{const continent=z.continent||"Autres",country=z.country||"Autre";if(!continents.has(continent))continents.set(continent,new Map());if(!continents.get(continent).has(country))continents.get(continent).set(country,[]);continents.get(continent).get(country).push(z)});
+  continents.forEach((countries,continent)=>{const continentTitle=document.createElement("div");continentTitle.className="zone-group-continent";continentTitle.textContent=continent;list.appendChild(continentTitle);countries.forEach((zones,country)=>{const countryTitle=document.createElement("div");countryTitle.className="zone-group-country";countryTitle.textContent=country;list.appendChild(countryTitle);zones.forEach(z=>{const card=document.createElement("div");card.className="zone-card";const swatch=document.createElement("span");swatch.className="zone-swatch";swatch.style.background=zoneColor(z);swatch.style.borderColor=z.type==="allie-neutre"?"#777":zoneColor(z);const cb=document.createElement("input");cb.type="checkbox";cb.className="zone-check";cb.checked=selectedZones.has(z.id);cb.title="Sélectionner cette zone";cb.onchange=()=>{cb.checked?selectedZones.add(z.id):selectedZones.delete(z.id);updateWPlaceTiles()};const main=document.createElement("div");main.className="zone-main";const name=document.createElement("div");name.className="zone-name";name.textContent=z.name;const meta=document.createElement("div");meta.className="zone-meta";meta.textContent=(z.description||"")+" · "+z.points.length+" points";main.append(name,meta);const focus=document.createElement("button");focus.type="button";focus.className="zone-focus";focus.textContent="CENTRER";focus.onclick=()=>map.flyTo({center:z.center,zoom:z.zoom,duration:700});card.append(swatch,cb,main,focus);list.appendChild(card)})})})
+}
 function pointInPolygon(x,y,polygon){let inside=false;for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){const xi=polygon[i][0],yi=polygon[i][1],xj=polygon[j][0],yj=polygon[j][1];const intersects=((yi>y)!=(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi);if(intersects)inside=!inside}return inside}
 function segmentsIntersect(a,b,c,d){const cross=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);const onSegment=(p,q,r)=>Math.min(p[0],r[0])<=q[0]&&q[0]<=Math.max(p[0],r[0])&&Math.min(p[1],r[1])<=q[1]&&q[1]<=Math.max(p[1],r[1]);const c1=cross(a,b,c),c2=cross(a,b,d),c3=cross(c,d,a),c4=cross(c,d,b);if(((c1>0&&c2<0)||(c1<0&&c2>0))&&((c3>0&&c4<0)||(c3<0&&c4>0)))return true;return(c1===0&&onSegment(a,c,b))||(c2===0&&onSegment(a,d,b))||(c3===0&&onSegment(c,a,d))||(c4===0&&onSegment(c,b,d))}
 function polygonIntersectsTile(zone,x,y){const left=x*WPLACE_TILE_SIZE,right=(x+1)*WPLACE_TILE_SIZE,top=y*WPLACE_TILE_SIZE,bottom=(y+1)*WPLACE_TILE_SIZE,polygon=zone.points.map(p=>[longitudeToWorldX(p[1]),latitudeToWorldY(p[0])]);for(const p of polygon)if(p[0]>=left&&p[0]<=right&&p[1]>=top&&p[1]<=bottom)return true;const corners=[[left,top],[right,top],[right,bottom],[left,bottom]];if(corners.some(p=>pointInPolygon(p[0],p[1],polygon)))return true;for(let i=0;i<polygon.length;i++){const a=polygon[i],b=polygon[(i+1)%polygon.length];for(let j=0;j<4;j++)if(segmentsIntersect(a,b,corners[j],corners[(j+1)%4]))return true}return false}
 function getVisibleWPlaceTiles(){if(map.getZoom()<WPLACE_MIN_DISPLAY_ZOOM)return new Set();const b=map.getBounds(),west=longitudeToWorldX(b.getWest()),east=longitudeToWorldX(b.getEast()),north=latitudeToWorldY(Math.min(85.05112878,b.getNorth())),south=latitudeToWorldY(Math.max(-85.05112878,b.getSouth()));let minX=Math.max(0,Math.floor(west/1000)-TILE_PADDING),maxX=Math.min(2047,Math.floor(east/1000)+TILE_PADDING),minY=Math.max(0,Math.floor(north/1000)-TILE_PADDING),maxY=Math.min(2047,Math.floor(south/1000)+TILE_PADDING);const r=new Set();for(let x=minX;x<=maxX;x++)for(let y=minY;y<=maxY;y++)r.add(tileId(x,y));return r}
 function getSelectedZoneTiles(){const visible=getVisibleWPlaceTiles();if(!zoneFilterEnabled)return visible;const result=new Set();getVisibleZonesByOverallFilter().forEach(zone=>{if(!selectedZones.has(zone.id))return;visible.forEach(id=>{const p=id.split("/");if(polygonIntersectsTile(zone,+p[0],+p[1]))result.add(id)})});return result}
-const zonesTab=document.getElementById("zones-tab"),zonesPanel=document.getElementById("zones-panel");zonesPanel.classList.add("open");zonesTab.setAttribute("aria-expanded","true");zonesTab.textContent="FERMER";zonesTab.onclick=()=>{const o=zonesPanel.classList.toggle("open");zonesTab.setAttribute("aria-expanded",String(o));zonesTab.textContent=o?"FERMER":"ZONES"};document.addEventListener("click",e=>{if(!zonesPanel.contains(e.target)&&!zonesTab.contains(e.target)){zonesPanel.classList.remove("open");zonesTab.setAttribute("aria-expanded","false");zonesTab.textContent="ZONES"}});document.getElementById("zone-filter").onchange=e=>{zoneFilterEnabled=e.target.checked;updateWPlaceTiles()};document.querySelectorAll("#zone-overall-filter button").forEach(btn=>{btn.onclick=()=>{overallTypeFilter=btn.dataset.type;document.querySelectorAll("#zone-overall-filter button").forEach(b=>b.classList.toggle("active",b===btn));renderZonePanel();renderZoneBoundaries();updateWPlaceTiles()}});
-const map=new maplibregl.Map({container:"map",style:"https://tiles.openfreemap.org/styles/liberty",center:[INITIAL_LONGITUDE,INITIAL_LATITUDE],zoom:INITIAL_ZOOM,minZoom:0,maxZoom:13,bearing:0,pitch:0,maxPitch:0,attributionControl:true});map.addControl(new maplibregl.NavigationControl(),"top-right");map.dragRotate.disable();map.touchZoomRotate.disableRotation();map.keyboard.disable();
-const loadedTiles=new Map();let desiredTiles=new Set();
-function addWPlaceTile(x,y){const id=tileId(x,y);if(loadedTiles.has(id)||loadedTiles.size>=MAX_LOADED_TILES)return;const sourceId="wplace-"+x+"-"+y,layerId=sourceId+"-layer";map.addSource(sourceId,{type:"image",url:WPLACE_PROXY+"/tile/"+x+"/"+y+".png",coordinates:getTileCoordinates(x,y)});map.addLayer({id:layerId,type:"raster",source:sourceId,minzoom:WPLACE_MIN_DISPLAY_ZOOM,maxzoom:14,paint:{"raster-opacity":1,"raster-fade-duration":0}});if(map.getLayer("alliance-zones-casing"))map.moveLayer("alliance-zones-casing");if(map.getLayer("alliance-zones-line"))map.moveLayer("alliance-zones-line");if(map.getLayer("alliance-zones-labels"))map.moveLayer("alliance-zones-labels");loadedTiles.set(id,{tileX:x,tileY:y,sourceId,layerId});console.log("Tuile WPlace chargée :",x,y)}
-function removeWPlaceTile(id){const t=loadedTiles.get(id);if(!t)return;if(map.getLayer(t.layerId))map.removeLayer(t.layerId);if(map.getSource(t.sourceId))map.removeSource(t.sourceId);loadedTiles.delete(id);console.log("Tuile WPlace retirée :",t.tileX,t.tileY)}
-function updateTileCounters(){document.getElementById("visibleTiles").textContent=desiredTiles.size;document.getElementById("loadedTiles").textContent=loadedTiles.size}
-function updateWPlaceTiles(){const zoom=map.getZoom();if(zoom<WPLACE_MIN_DISPLAY_ZOOM){desiredTiles=new Set();[...loadedTiles.keys()].forEach(removeWPlaceTile);updateTileCounters();document.getElementById("status").textContent="Carte géographique — zoom "+zoom.toFixed(1);return}desiredTiles=getSelectedZoneTiles();if(desiredTiles.size>MAX_LOADED_TILES){document.getElementById("status").textContent="Zone trop large — zoomez davantage";return}desiredTiles.forEach(id=>{if(!loadedTiles.has(id)){const p=id.split("/");addWPlaceTile(+p[0],+p[1])}});[...loadedTiles.keys()].forEach(id=>{if(!desiredTiles.has(id))removeWPlaceTile(id)});document.getElementById("status").textContent="Pixels WPlace actifs — zoom "+zoom.toFixed(1);updateTileCounters()}
-function updateInterface(){const z=map.getZoom();document.getElementById("zoom").textContent=z.toFixed(2);const c=map.getCenter(),w=worldToWplace(longitudeToWorldX(c.lng),latitudeToWorldY(c.lat));document.getElementById("tile").textContent=w.tileX+" / "+w.tileY;document.getElementById("pixel").textContent=w.pixelX+" / "+w.pixelY;document.getElementById("coordinates").textContent="Tuile "+w.tileX+" / "+w.tileY+"   Pixel "+w.pixelX+" / "+w.pixelY}
-async function loadZonesFromApi(){try{document.getElementById("status").textContent="Chargement des zones D1...";const response=await fetch(ZONES_API_URL,{cache:"no-store"});if(!response.ok)throw new Error("HTTP "+response.status);const rows=await response.json();if(!Array.isArray(rows)||rows.length===0)throw new Error("Aucune zone reçue");const apiZones=rows.map(z=>({id:z.slug,name:z.name,description:z.description||"",type:z.category_slug,continent:z.continent||"Autres",country:z.country||"Autre",center:JSON.parse(z.center),zoom:Number(z.focus_zoom),points:JSON.parse(z.polygon),color:z.category_color||"#aaaaaa",owner_name:z.owner_name||null,owner_public:z.owner_public,status:z.status||"active",version:z.version,updated_at:z.updated_at}));ALLIANCE_ZONES.length=0;ALLIANCE_ZONES.push(...apiZones);selectedZones.clear();apiZones.forEach(z=>selectedZones.add(z.id));renderZonePanel();renderZoneBoundaries();updateWPlaceTiles();document.getElementById("status").textContent="Zones D1 chargées — "+apiZones.length+" zones";console.log("Zones chargées depuis D1 :",apiZones)}catch(error){console.error("Impossible de charger les zones depuis D1 :",error);ALLIANCE_ZONES.length=0;selectedZones.clear();renderZonePanel();renderZoneBoundaries();updateWPlaceTiles();document.getElementById("status").textContent="Erreur : zones D1 indisponibles"}}
-map.on("load",()=>{renderZoneBoundaries();updateInterface();updateWPlaceTiles();console.log("WPlace : démarrage");console.log("Monde : "+WPLACE_WORLD_SIZE+" × "+WPLACE_WORLD_SIZE);console.log("Zoom natif : "+WPLACE_NATIVE_ZOOM);console.log("Proxy : "+WPLACE_PROXY);console.log("API zones : "+ZONES_API_URL);console.log("Seuil WPlace : "+WPLACE_MIN_DISPLAY_ZOOM);console.log("Maximum tuiles : "+MAX_LOADED_TILES);loadZonesFromApi()});map.on("moveend",()=>{updateInterface();updateWPlaceTiles()});map.on("zoomend",()=>{updateInterface();updateWPlaceTiles()});map.on("mousemove",e=>{const w=worldToWplace(longitudeToWorldX(e.lngLat.lng),latitudeToWorldY(e.lngLat.lat));document.getElementById("coordinates").textContent="Tuile "+w.tileX+" / "+w.tileY+"   Pixel "+w.pixelX+" / "+w.pixelY});
+function initZoneControls(){
+  const zonesTab=document.getElementById("zones-tab"),zonesPanel=document.getElementById("zones-panel");
+  zonesPanel.classList.add("open");zonesTab.setAttribute("aria-expanded","true");zonesTab.textContent="FERMER";
+  zonesTab.onclick=()=>{const o=zonesPanel.classList.toggle("open");zonesTab.setAttribute("aria-expanded",String(o));zonesTab.textContent=o?"FERMER":"ZONES"};
+  document.addEventListener("click",e=>{if(!zonesPanel.contains(e.target)&&!zonesTab.contains(e.target)){zonesPanel.classList.remove("open");zonesTab.setAttribute("aria-expanded","false");zonesTab.textContent="ZONES"}});
+  document.getElementById("zone-filter").onchange=e=>{zoneFilterEnabled=e.target.checked;updateWPlaceTiles()};
+  document.querySelectorAll("#zone-overall-filter button").forEach(btn=>{btn.onclick=()=>{overallTypeFilter=btn.dataset.type;document.querySelectorAll("#zone-overall-filter button").forEach(b=>b.classList.toggle("active",b===btn));renderZonePanel();renderZoneBoundaries();updateWPlaceTiles()}});
+}
+function initMap(){
+  initZoneControls();
+  map=new maplibregl.Map({container:"map",style:"https://tiles.openfreemap.org/styles/liberty",center:[INITIAL_LONGITUDE,INITIAL_LATITUDE],zoom:INITIAL_ZOOM,minZoom:0,maxZoom:13,bearing:0,pitch:0,maxPitch:0,attributionControl:true});
+  map.addControl(new maplibregl.NavigationControl(),"top-right");map.dragRotate.disable();map.touchZoomRotate.disableRotation();map.keyboard.disable();
+  const loadedTiles=new Map();let desiredTiles=new Set();
+  window.__wplaceLoadedTiles=loadedTiles;
+  function addWPlaceTile(x,y){const id=tileId(x,y);if(loadedTiles.has(id)||loadedTiles.size>=MAX_LOADED_TILES)return;const sourceId="wplace-"+x+"-"+y,layerId=sourceId+"-layer";map.addSource(sourceId,{type:"image",url:WPLACE_PROXY+"/tile/"+x+"/"+y+".png",coordinates:getTileCoordinates(x,y)});map.addLayer({id:layerId,type:"raster",source:sourceId,minzoom:WPLACE_MIN_DISPLAY_ZOOM,maxzoom:14,paint:{"raster-opacity":1,"raster-fade-duration":0}});if(map.getLayer("alliance-zones-casing"))map.moveLayer("alliance-zones-casing");if(map.getLayer("alliance-zones-line"))map.moveLayer("alliance-zones-line");if(map.getLayer("alliance-zones-labels"))map.moveLayer("alliance-zones-labels");loadedTiles.set(id,{tileX:x,tileY:y,sourceId,layerId});console.log("Tuile WPlace chargée :",x,y)}
+  function removeWPlaceTile(id){const t=loadedTiles.get(id);if(!t)return;if(map.getLayer(t.layerId))map.removeLayer(t.layerId);if(map.getSource(t.sourceId))map.removeSource(t.sourceId);loadedTiles.delete(id);console.log("Tuile WPlace retirée :",t.tileX,t.tileY)}
+  function updateTileCounters(){document.getElementById("visibleTiles").textContent=desiredTiles.size;document.getElementById("loadedTiles").textContent=loadedTiles.size}
+  function updateWPlaceTiles(){const zoom=map.getZoom();if(zoom<WPLACE_MIN_DISPLAY_ZOOM){desiredTiles=new Set();[...loadedTiles.keys()].forEach(removeWPlaceTile);updateTileCounters();document.getElementById("status").textContent="Carte géographique — zoom "+zoom.toFixed(1);return}desiredTiles=getSelectedZoneTiles();if(desiredTiles.size>MAX_LOADED_TILES){document.getElementById("status").textContent="Zone trop large — zoomez davantage";return}desiredTiles.forEach(id=>{if(!loadedTiles.has(id)){const p=id.split("/");addWPlaceTile(+p[0],+p[1])}});[...loadedTiles.keys()].forEach(id=>{if(!desiredTiles.has(id))removeWPlaceTile(id)});document.getElementById("status").textContent="Pixels WPlace actifs — zoom "+zoom.toFixed(1);updateTileCounters()}
+  function updateInterface(){const z=map.getZoom();document.getElementById("zoom").textContent=z.toFixed(2);const c=map.getCenter(),w=worldToWplace(longitudeToWorldX(c.lng),latitudeToWorldY(c.lat));document.getElementById("tile").textContent=w.tileX+" / "+w.tileY;document.getElementById("pixel").textContent=w.pixelX+" / "+w.pixelY;document.getElementById("coordinates").textContent="Tuile "+w.tileX+" / "+w.tileY+"   Pixel "+w.pixelX+" / "+w.pixelY}
+  window.updateWPlaceTiles=updateWPlaceTiles;
+  window.updateInterface=updateInterface;
+  async function loadZonesFromApi(){try{document.getElementById("status").textContent="Chargement des zones D1...";const response=await fetch(ZONES_API_URL,authFetchOptions());if(response.status===401||response.status===403){window.location.reload();return}if(!response.ok)throw new Error("HTTP "+response.status);const rows=await response.json();if(!Array.isArray(rows)||rows.length===0)throw new Error("Aucune zone reçue");const apiZones=rows.map(z=>({id:z.slug,name:z.name,description:z.description||"",type:z.category_slug,continent:z.continent||"Autres",country:z.country||"Autre",center:JSON.parse(z.center),zoom:Number(z.focus_zoom),points:JSON.parse(z.polygon),color:z.category_color||"#aaaaaa",owner_name:z.owner_name||null,owner_public:z.owner_public,status:z.status||"active",version:z.version,updated_at:z.updated_at}));ALLIANCE_ZONES.length=0;ALLIANCE_ZONES.push(...apiZones);selectedZones.clear();apiZones.forEach(z=>selectedZones.add(z.id));renderZonePanel();renderZoneBoundaries();updateWPlaceTiles();document.getElementById("status").textContent="Zones D1 chargées — "+apiZones.length+" zones";console.log("Zones chargées depuis D1 :",apiZones)}catch(error){console.error("Impossible de charger les zones depuis D1 :",error);ALLIANCE_ZONES.length=0;selectedZones.clear();renderZonePanel();renderZoneBoundaries();updateWPlaceTiles();document.getElementById("status").textContent="Erreur : zones D1 indisponibles"}}
+  map.on("load",()=>{renderZoneBoundaries();updateInterface();updateWPlaceTiles();console.log("WPlace : démarrage");console.log("Monde : "+WPLACE_WORLD_SIZE+" × "+WPLACE_WORLD_SIZE);console.log("Zoom natif : "+WPLACE_NATIVE_ZOOM);console.log("Proxy : "+WPLACE_PROXY);console.log("API zones : "+ZONES_API_URL);console.log("Seuil WPlace : "+WPLACE_MIN_DISPLAY_ZOOM);console.log("Maximum tuiles : "+MAX_LOADED_TILES);loadZonesFromApi().then(()=>loadZoneDetailsScript())});
+  map.on("moveend",()=>{updateInterface();updateWPlaceTiles()});map.on("zoomend",()=>{updateInterface();updateWPlaceTiles()});map.on("mousemove",e=>{const w=worldToWplace(longitudeToWorldX(e.lngLat.lng),latitudeToWorldY(e.lngLat.lat));document.getElementById("coordinates").textContent="Tuile "+w.tileX+" / "+w.tileY+"   Pixel "+w.pixelX+" / "+w.pixelY});
+}
 </script>
-<script src="zone-details.js"></script>
 </body>
 </html>
