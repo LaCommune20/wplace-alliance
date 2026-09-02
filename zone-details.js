@@ -1,6 +1,8 @@
 (() => {
   "use strict";
 
+  const ZONES_API_URL = "https://wplace-commune-api-dev.mathieu-peter.workers.dev/api/zones";
+
   function installZoneDetails() {
     if (document.getElementById("zone-details")) return;
 
@@ -14,6 +16,8 @@
         z-index:1100;
         width:320px;
         max-width:calc(100vw - 30px);
+        max-height:calc(100vh - 30px);
+        overflow-y:auto;
         padding:16px;
         border-radius:9px;
         background:rgba(15,15,15,.96);
@@ -33,10 +37,24 @@
       .zone-details-field { min-width:0; padding:9px; border-radius:6px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); }
       .zone-details-label { margin-bottom:4px; color:#777; font-size:9px; text-transform:uppercase; letter-spacing:.6px; }
       .zone-details-value { color:#ddd; font-size:11px; line-height:1.3; overflow-wrap:anywhere; }
+      #zone-details-templates { margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08); }
+      #zone-details-templates-title { margin-bottom:9px; color:#aaa; font-size:10px; font-weight:bold; text-transform:uppercase; letter-spacing:.8px; }
+      #zone-details-templates-list { display:flex; flex-direction:column; gap:7px; }
+      .zone-template-card { padding:9px; border-radius:6px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); }
+      .zone-template-name { color:#ddd; font-size:11px; font-weight:bold; line-height:1.3; }
+      .zone-template-description { margin-top:4px; color:#888; font-size:10px; line-height:1.4; }
+      .zone-template-meta { margin-top:6px; color:#666; font:9px Consolas,monospace; }
+      .zone-template-actions { display:flex; gap:6px; margin-top:8px; }
+      .zone-template-actions a,
+      .zone-template-actions button { flex:1; min-width:0; border:1px solid rgba(255,255,255,.12); background:#202020; color:#ccc; border-radius:5px; padding:7px 6px; cursor:pointer; font-size:9px; text-align:center; text-decoration:none; }
+      .zone-template-actions a:hover,
+      .zone-template-actions button:hover:not(:disabled) { background:#2b2b2b; color:#fff; }
+      .zone-template-actions button:disabled { color:#666; cursor:not-allowed; opacity:.7; }
+      .zone-templates-message { color:#777; font-size:10px; line-height:1.4; }
       #zone-details-actions { display:flex; gap:7px; margin-top:12px; }
       #zone-details-actions button { flex:1; border:1px solid rgba(255,255,255,.12); background:#202020; color:#ccc; border-radius:5px; padding:8px; cursor:pointer; font-size:10px; }
       #zone-details-actions button:hover { background:#2b2b2b; color:#fff; }
-      @media(max-width:700px) { #zone-details { top:auto; right:15px; bottom:55px; width:min(320px,calc(100vw - 30px)); } }
+      @media(max-width:700px) { #zone-details { top:auto; right:15px; bottom:55px; width:min(320px,calc(100vw - 30px)); max-height:calc(100vh - 70px); } }
     `;
     document.head.appendChild(style);
 
@@ -59,9 +77,15 @@
         <div class="zone-details-field"><div class="zone-details-label">Périmètre</div><div class="zone-details-value" id="zone-details-perimeter">—</div></div>
         <div class="zone-details-field" style="grid-column:1 / -1"><div class="zone-details-label">Dernière modification</div><div class="zone-details-value" id="zone-details-updated">—</div></div>
       </div>
+      <div id="zone-details-templates">
+        <div id="zone-details-templates-title">Templates</div>
+        <div id="zone-details-templates-list"><div class="zone-templates-message">Chargement...</div></div>
+      </div>
       <div id="zone-details-actions"><button id="zone-details-center" type="button">CENTRER LA ZONE</button></div>
     `;
     document.body.appendChild(panel);
+
+    let templatesRequestToken = 0;
 
     function categoryName(zone) {
       if (zone.type === "commune") return "La Commune";
@@ -89,6 +113,118 @@
       return date.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
     }
 
+    function isAllowedWPlaceUrl(value) {
+      if (!value) return false;
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:" && (url.hostname === "wplace.live" || url.hostname.endsWith(".wplace.live"));
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function renderTemplates(templates) {
+      const list = document.getElementById("zone-details-templates-list");
+      if (!list) return;
+
+      list.innerHTML = "";
+
+      if (!Array.isArray(templates) || templates.length === 0) {
+        const message = document.createElement("div");
+        message.className = "zone-templates-message";
+        message.textContent = "Aucun template actif pour cette zone.";
+        list.appendChild(message);
+        return;
+      }
+
+      templates.forEach(function (template) {
+        const card = document.createElement("div");
+        card.className = "zone-template-card";
+
+        const name = document.createElement("div");
+        name.className = "zone-template-name";
+        name.textContent = template.name || template.slug || "Template";
+        card.appendChild(name);
+
+        if (template.description) {
+          const description = document.createElement("div");
+          description.className = "zone-template-description";
+          description.textContent = template.description;
+          card.appendChild(description);
+        }
+
+        const meta = document.createElement("div");
+        meta.className = "zone-template-meta";
+        meta.textContent = "Version " + (template.version != null ? template.version : "—") + " · Actif";
+        card.appendChild(meta);
+
+        const actions = document.createElement("div");
+        actions.className = "zone-template-actions";
+
+        const download = document.createElement("button");
+        download.type = "button";
+        download.disabled = true;
+        download.textContent = "Télécharger";
+        download.title = "Le téléchargement sera disponible après l'activation de R2.";
+        actions.appendChild(download);
+
+        if (isAllowedWPlaceUrl(template.wplace_url)) {
+          const wplaceLink = document.createElement("a");
+          wplaceLink.href = template.wplace_url;
+          wplaceLink.target = "_blank";
+          wplaceLink.rel = "noopener noreferrer";
+          wplaceLink.textContent = "Ouvrir WPlace";
+          actions.appendChild(wplaceLink);
+        }
+
+        card.appendChild(actions);
+        list.appendChild(card);
+      });
+    }
+
+    async function loadTemplates(zone) {
+      const list = document.getElementById("zone-details-templates-list");
+      if (!list || !zone) return;
+
+      const requestToken = ++templatesRequestToken;
+      list.innerHTML = "";
+
+      const loading = document.createElement("div");
+      loading.className = "zone-templates-message";
+      loading.textContent = "Chargement...";
+      list.appendChild(loading);
+
+      const identifier = zone.slug || zone.id;
+      if (!identifier) {
+        renderTemplates([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          ZONES_API_URL + "/" + encodeURIComponent(identifier) + "/templates",
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+
+        const templates = await response.json();
+        if (requestToken !== templatesRequestToken) return;
+        renderTemplates(templates);
+
+      } catch (error) {
+        console.error("Erreur lors du chargement des templates:", error);
+        if (requestToken !== templatesRequestToken) return;
+        list.innerHTML = "";
+        const message = document.createElement("div");
+        message.className = "zone-templates-message";
+        message.textContent = "Impossible de charger les templates.";
+        list.appendChild(message);
+      }
+    }
+
     function showZoneDetails(zone) {
       if (!zone) return;
       document.getElementById("zone-details-title").textContent = zone.name || "Zone";
@@ -108,9 +244,12 @@
       panel.classList.add("open");
       panel.setAttribute("aria-hidden", "false");
       panel.dataset.zoneId = zone.id || "";
+
+      loadTemplates(zone);
     }
 
     function closeZoneDetails() {
+      templatesRequestToken++;
       panel.classList.remove("open");
       panel.setAttribute("aria-hidden", "true");
       delete panel.dataset.zoneId;
