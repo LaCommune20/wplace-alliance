@@ -17,19 +17,9 @@
 </head>
 <body>
 <div id="gate"><div class="card"><div class="brand">WPlace La Commune</div><div id="gate-title" class="sub">Vérification de votre accès à l'administration…</div><div id="gate-error" class="error hidden"></div><button id="login" class="btn hidden" type="button">SE CONNECTER AVEC DISCORD</button></div></div>
-
 <div id="app" class="hidden">
 <header class="top"><div><h1>Administration — WPlace La Commune</h1><small id="user">—</small></div><div class="top-actions"><a class="back" href="../">← Carte</a><div id="role" class="role">—</div></div></header>
-<div class="layout"><nav>
-<button class="navbtn active" data-section="dashboard">Vue d'ensemble</button>
-<button class="navbtn" data-section="zones">Zones</button>
-<button class="navbtn" data-section="moderators" id="nav-moderators">Modérateurs</button>
-<button class="navbtn" data-section="templates">Templates</button>
-<button class="navbtn" data-section="operations">Opérations</button>
-<button class="navbtn" data-section="alerts">Alertes</button>
-<button class="navbtn" data-section="history">Historique</button>
-<button class="navbtn" data-section="logs">Logs</button>
-</nav><main class="main">
+<div class="layout"><nav><button class="navbtn active" data-section="dashboard">Vue d'ensemble</button><button class="navbtn" data-section="zones">Zones</button><button class="navbtn" data-section="moderators" id="nav-moderators">Modérateurs</button><button class="navbtn" data-section="templates">Templates</button><button class="navbtn" data-section="operations">Opérations</button><button class="navbtn" data-section="alerts">Alertes</button><button class="navbtn" data-section="history">Historique</button><button class="navbtn" data-section="logs">Logs</button></nav><main class="main">
 <section id="dashboard" class="section active"><div class="section-head"><div><h2>Vue d'ensemble</h2><p>Centre de contrôle de La Commune.</p></div><button class="refresh" id="refresh">Actualiser</button></div><div class="grid"><div class="stat"><label>Zones actives</label><strong id="count-zones">—</strong></div><div class="stat"><label>Templates actifs</label><strong id="count-templates">—</strong></div><div class="stat"><label>Opérations</label><strong id="count-operations">—</strong></div><div class="stat"><label>Alertes</label><strong id="count-alerts">—</strong></div></div><div class="panel"><div class="panel-title">État du système</div><div id="system-state" class="empty">Chargement…</div></div></section>
 <section id="zones" class="section"><h2>Zones</h2><p>Zones accessibles selon votre niveau d'administration.</p><div class="panel"><div id="zones-list" class="empty">Chargement…</div></div></section>
 <section id="moderators" class="section"><h2>Modérateurs</h2><p>Affectations modérateur ↔ zone.</p><div class="panel"><div id="moderators-list" class="empty">Chargement…</div></div><div class="notice">La modification des affectations sera ajoutée après validation de cette interface en lecture seule.</div></section>
@@ -39,7 +29,6 @@
 <section id="history" class="section"><h2>Historique</h2><p>Versions des zones et templates, avec restauration.</p><div class="panel"><div class="empty">Historique — prochaine étape.</div></div></section>
 <section id="logs" class="section"><h2>Logs d'administration</h2><p>Actions autorisées, refusées et erreurs.</p><div class="panel"><div class="empty">Logs — prochaine étape.</div></div></section>
 </main></div></div>
-
 <script>
 const API="https://wplace-commune-api-dev.mathieu-peter.workers.dev";
 function token(){try{return sessionStorage.getItem("wplace_session")}catch{return null}}
@@ -50,38 +39,12 @@ function roleName(r){return r==="admin"?"Admin":r==="moderator"?"Modérateur":"M
 function renderZones(zones){const el=document.getElementById("zones-list");el.innerHTML="";if(!zones?.length){el.textContent="Aucune zone accessible.";return}for(const z of zones){const row=document.createElement("div");row.className="zone";const dot=document.createElement("span");dot.className="dot";dot.style.background=z.category_color||"#888";const main=document.createElement("div");main.className="zone-main";const n=document.createElement("div");n.className="zone-name";n.textContent=z.name;const m=document.createElement("div");m.className="zone-meta";m.textContent=(z.slug||z.id)+" · v"+(z.version??"—")+" · "+(z.country||"—")+" / "+(z.continent||"—")+" · "+(z.moderator_count??0)+" mod.";main.append(n,m);const tag=document.createElement("span");tag.className="tag";tag.textContent=z.category_name||z.category_slug||"—";row.append(dot,main,tag);el.appendChild(row)}}
 function renderModerators(items){const el=document.getElementById("moderators-list");el.innerHTML="";if(!items?.length){el.textContent="Aucune affectation de modérateur.";return}for(const item of items){const row=document.createElement("div");row.className="zone";const main=document.createElement("div");main.className="zone-main";const n=document.createElement("div");n.className="zone-name";n.textContent=item.zone_name||("Zone "+item.zone_id);const m=document.createElement("div");m.className="zone-meta";m.textContent="Discord ID : "+item.discord_user_id+" · affecté par : "+(item.assigned_by||"—");main.append(n,m);row.append(main);el.appendChild(row)}}
 async function renderTemplates(zones){const el=document.getElementById("templates-list");el.innerHTML="";let total=0;for(const z of zones||[]){try{const ts=await getJson("/api/zones/"+encodeURIComponent(z.slug||z.id)+"/templates");if(!Array.isArray(ts))continue;for(const t of ts){total++;const row=document.createElement("div");row.className="zone";const main=document.createElement("div");main.className="zone-main";const n=document.createElement("div");n.className="zone-name";n.textContent=t.name||t.slug||"Template";const m=document.createElement("div");m.className="zone-meta";m.textContent=z.name+" · "+(t.slug||"—")+" · v"+(t.version??"—");main.append(n,m);const tag=document.createElement("span");tag.className="tag";tag.textContent=t.status||"—";row.append(main,tag);el.appendChild(row)}}catch(e){console.warn("Templates",z.slug,e)}}if(!total)el.textContent="Aucun template accessible.";return total}
-async function load(){
- document.getElementById("system-state").textContent="Chargement…";
- try{
-  const me=await getJson("/api/auth/me");
-  if(!me.authenticated)throw new Error("AUTH");
-  if(!["admin","moderator"].includes(me.access)){showError("Cette interface est réservée aux administrateurs et modérateurs.");return}
-  document.getElementById("gate").classList.add("hidden");document.getElementById("app").classList.remove("hidden");
-  document.getElementById("user").textContent=me.user?.global_name||me.user?.username||me.user?.id||"Utilisateur Discord";
-  document.getElementById("role").textContent=roleName(me.access);
-  if(me.access!=="admin")document.getElementById("nav-moderators").classList.add("hidden");
-  const overview=await getJson("/api/admin/overview");
-  const zones=await getJson("/api/admin/zones");
-  document.getElementById("count-zones").textContent=overview.counts?.zones??zones.length;
-  document.getElementById("count-templates").textContent=overview.counts?.templates??"—";
-  document.getElementById("count-operations").textContent=overview.counts?.operations??"—";
-  document.getElementById("count-alerts").textContent=overview.counts?.alerts??"—";
-  renderZones(zones);
-  const total=await renderTemplates(zones);
-  document.getElementById("count-templates").textContent=total;
-  if(me.access==="admin"){
-   try{renderModerators(await getJson("/api/admin/moderators"))}catch(e){document.getElementById("moderators-list").textContent="Impossible de charger les affectations.";console.warn(e)}
-  }
-  document.getElementById("system-state").textContent="Session Discord valide · accès "+roleName(me.access)+" · API admin opérationnelle · "+zones.length+" zone(s) accessible(s) · "+total+" template(s) accessible(s).";
- }catch(e){
-  console.error(e);
-  document.getElementById("app").classList.add("hidden");document.getElementById("gate").classList.remove("hidden");
-  if(e.message==="HTTP 401"||e.message==="AUTH")showError("Votre session Discord est absente ou expirée.",true);else showError("Impossible de charger l'administration. Vérifiez le Worker DEV et réessayez.");
- }
-}
+function getSessionToken(){try{const hash=window.location.hash.startsWith("#")?window.location.hash.slice(1):window.location.hash;const params=new URLSearchParams(hash);const t=params.get("wplace_session");if(t){sessionStorage.setItem("wplace_session",t);window.history.replaceState({},document.title,window.location.pathname+window.location.search);return t}return sessionStorage.getItem("wplace_session")}catch{return null}}
+async function load(){document.getElementById("system-state").textContent="Chargement…";try{const me=await getJson("/api/auth/me");if(!me.authenticated)throw new Error("AUTH");if(!["admin","moderator"].includes(me.access)){showError("Cette interface est réservée aux administrateurs et modérateurs.");return}document.getElementById("gate").classList.add("hidden");document.getElementById("app").classList.remove("hidden");document.getElementById("user").textContent=me.user?.global_name||me.user?.username||me.user?.id||"Utilisateur Discord";document.getElementById("role").textContent=roleName(me.access);if(me.access!=="admin")document.getElementById("nav-moderators").classList.add("hidden");const overview=await getJson("/api/admin/overview");const zones=await getJson("/api/admin/zones");document.getElementById("count-zones").textContent=overview.counts?.zones??zones.length;document.getElementById("count-templates").textContent=overview.counts?.templates??"—";document.getElementById("count-operations").textContent=overview.counts?.operations??"—";document.getElementById("count-alerts").textContent=overview.counts?.alerts??"—";renderZones(zones);const total=await renderTemplates(zones);document.getElementById("count-templates").textContent=total;if(me.access==="admin"){try{renderModerators(await getJson("/api/admin/moderators"))}catch(e){document.getElementById("moderators-list").textContent="Impossible de charger les affectations.";console.warn(e)}}document.getElementById("system-state").textContent="Session Discord valide · accès "+roleName(me.access)+" · API admin opérationnelle · "+zones.length+" zone(s) accessible(s) · "+total+" template(s) accessible(s)."}catch(e){console.error(e);document.getElementById("app").classList.add("hidden");document.getElementById("gate").classList.remove("hidden");if(e.message==="HTTP 401"||e.message==="AUTH")showError("Votre session Discord est absente ou expirée.",true);else showError("Impossible de charger l'administration. Vérifiez le Worker DEV et réessayez.")}}
 document.querySelectorAll(".navbtn").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".navbtn").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.getElementById(b.dataset.section).classList.add("active")}));
 document.getElementById("refresh").onclick=()=>load();
 document.getElementById("login").onclick=()=>{window.location.href=API+"/auth/discord?next="+encodeURIComponent(window.location.pathname+window.location.search)};
+getSessionToken();
 load();
 </script>
 </body>
