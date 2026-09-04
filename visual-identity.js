@@ -1,13 +1,13 @@
 (() => {
   "use strict";
 
+  // Marque rouge/noir volontairement simple : pas de "D", pas d'emoji,
+  // et une diagonale qui reprend directement la DA du projet.
   const BRAND_MARK = `
     <span class="lc-brand-mark-v2" aria-hidden="true">
       <svg viewBox="0 0 32 32" role="img">
-        <path d="M3 3h26v26H3z" fill="#090909"/>
-        <path d="M3 3h26L3 29z" fill="#e10600"/>
-        <path d="M8 7h5.2c5.8 0 10.8 4.2 10.8 9.5S19 26 13.2 26H8V7Zm4.8 4.2v10.6h.4c3.3 0 5.9-2.3 5.9-5.3s-2.6-5.3-5.9-5.3h-.4Z" fill="#fff" opacity=".96"/>
-        <path d="M18.8 10.2c2.1 1.5 3.5 3.7 3.5 6.3 0 2.6-1.4 4.8-3.5 6.3 1.9-1.8 2.9-4 2.9-6.3s-1-4.5-2.9-6.3Z" fill="#090909"/>
+        <path d="M0 0h32v32H0z" fill="#080808"/>
+        <path d="M0 0h32L0 32z" fill="#e10600"/>
       </svg>
     </span>`;
 
@@ -19,7 +19,7 @@
   const style = document.createElement("style");
   style.id = "lc-visual-identity-v2";
   style.textContent = `
-    .lc-brand-mark-v2{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:6px;overflow:hidden;background:#090909;border:1px solid rgba(255,255,255,.12)}
+    .lc-brand-mark-v2{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:6px;overflow:hidden;background:#080808;border:1px solid rgba(255,255,255,.12)}
     .lc-brand-mark-v2 svg{width:100%;height:100%;display:block}
     #title .lc-brand-mark:not(.lc-brand-mark-v2){display:none!important}
     #panel{min-width:270px!important;padding:8px 11px!important}
@@ -52,10 +52,76 @@
     }
   }
 
+  function installZoneHover() {
+    if (typeof map === "undefined" || !map || map.__lcZoneHoverInstalled) return false;
+    const fillId = "alliance-zones-fill";
+    const lineId = "alliance-zones-line";
+    if (!map.getLayer(fillId)) return false;
+
+    const source = map.getLayer(fillId).source;
+    if (!source) return false;
+
+    const hoverId = "alliance-zones-hover";
+    if (!map.getLayer(hoverId)) {
+      const sourceLayer = map.getLayer(fillId).sourceLayer;
+      const layer = {
+        id: hoverId,
+        type: "line",
+        source,
+        paint: {
+          "line-color": "#ffffff",
+          "line-width": 3,
+          "line-opacity": 0.95,
+          "line-blur": 0.2
+        },
+        filter: ["==", ["get", "id"], "__none__"]
+      };
+      if (sourceLayer) layer["source-layer"] = sourceLayer;
+      map.addLayer(layer);
+    }
+
+    let hoveredId = null;
+    const setHover = event => {
+      const feature = event.features && event.features[0];
+      const id = feature && feature.properties && feature.properties.id;
+      if (id == null) return;
+      hoveredId = String(id);
+      map.setFilter(hoverId, ["==", ["get", "id"], hoveredId]);
+      map.getCanvas().style.cursor = "pointer";
+    };
+    const clearHover = () => {
+      hoveredId = null;
+      if (map.getLayer(hoverId)) map.setFilter(hoverId, ["==", ["get", "id"], "__none__"]);
+      map.getCanvas().style.cursor = "";
+    };
+
+    map.on("mouseenter", fillId, setHover);
+    map.on("mousemove", fillId, setHover);
+    map.on("mouseleave", fillId, clearHover);
+    map.__lcZoneHoverInstalled = true;
+    return true;
+  }
+
   apply();
   const observer = new MutationObserver(apply);
   observer.observe(document.documentElement, { childList: true, subtree: true });
   setTimeout(apply, 100);
   setTimeout(apply, 500);
   setTimeout(apply, 1500);
+
+  if (!installZoneHover()) {
+    const retryHover = () => {
+      if (installZoneHover() && typeof map !== "undefined") {
+        map.off("styledata", retryHover);
+        map.off("idle", retryHover);
+      }
+    };
+    if (typeof map !== "undefined") {
+      map.on("styledata", retryHover);
+      map.on("idle", retryHover);
+    }
+    setTimeout(installZoneHover, 100);
+    setTimeout(installZoneHover, 500);
+    setTimeout(installZoneHover, 1500);
+  }
 })();
