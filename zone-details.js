@@ -9,17 +9,39 @@
     const style = document.createElement("style");
     style.id = "zone-details-style";
     style.textContent = `
+      /* WPlace-like lightweight UI overrides. */
+      #panel, #zones-tab, #zones-panel, #status, #coordinates {
+        border-radius:3px !important;
+        box-shadow:0 3px 14px rgba(0,0,0,.28) !important;
+        border-color:rgba(255,255,255,.12) !important;
+      }
+      #panel {
+        background:rgba(12,12,12,.88) !important;
+        padding:12px 14px !important;
+      }
+      #title { font-size:18px !important; }
+      #info { margin-top:9px !important; padding-top:8px !important; line-height:1.55 !important; }
+      #zones-tab {
+        background:rgba(12,12,12,.88) !important;
+        padding:9px 12px !important;
+      }
+      #zones-panel {
+        background:rgba(12,12,12,.92) !important;
+        padding:12px !important;
+      }
+      .zone-card, .zone-details-field, .zone-template-card, .future-tab { border-radius:3px !important; }
+      .zone-focus, .zone-overall button, .zone-template-actions a, .zone-template-actions button, #zone-details-actions button { border-radius:2px !important; }
       #zone-details {
         position:absolute;
-        top:15px;
+        top:12px;
         right:15px;
         z-index:1100;
         width:320px;
         max-width:calc(100vw - 30px);
         max-height:calc(100vh - 30px);
         overflow-y:auto;
-        padding:16px;
-        border-radius:9px;
+        padding:14px;
+        border-radius:3px;
         background:rgba(15,15,15,.96);
         border:1px solid rgba(255,255,255,.15);
         box-shadow:0 5px 25px rgba(0,0,0,.5);
@@ -28,19 +50,19 @@
       }
       #zone-details.open { display:block; }
       #zone-details-head { display:flex; align-items:flex-start; gap:10px; margin-bottom:14px; }
-      #zone-details-swatch { width:12px; height:12px; margin-top:4px; border-radius:50%; border:1px solid #777; flex:0 0 auto; }
-      #zone-details-title { flex:1; min-width:0; font-size:16px; font-weight:bold; line-height:1.25; }
+      #zone-details-swatch { width:10px; height:10px; margin-top:4px; border-radius:50%; border:1px solid #777; flex:0 0 auto; }
+      #zone-details-title { flex:1; min-width:0; font-size:15px; font-weight:bold; line-height:1.25; }
       #zone-details-close { border:0; background:transparent; color:#888; font-size:20px; line-height:1; padding:0 2px; cursor:pointer; }
       #zone-details-close:hover { color:#fff; }
-      #zone-details-description { margin-bottom:14px; color:#aaa; font-size:11px; line-height:1.5; }
-      .zone-details-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-      .zone-details-field { min-width:0; padding:9px; border-radius:6px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); }
+      #zone-details-description { margin-bottom:12px; color:#aaa; font-size:11px; line-height:1.5; }
+      .zone-details-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+      .zone-details-field { min-width:0; padding:8px; border-radius:3px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); }
       .zone-details-label { margin-bottom:4px; color:#777; font-size:9px; text-transform:uppercase; letter-spacing:.6px; }
       .zone-details-value { color:#ddd; font-size:11px; line-height:1.3; overflow-wrap:anywhere; }
-      #zone-details-templates { margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08); }
+      #zone-details-templates { margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,.08); }
       #zone-details-templates-title { margin-bottom:9px; color:#aaa; font-size:10px; font-weight:bold; text-transform:uppercase; letter-spacing:.8px; }
       #zone-details-templates-list { display:flex; flex-direction:column; gap:7px; }
-      .zone-template-card { padding:9px; border-radius:6px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); }
+      .zone-template-card { padding:8px; border-radius:3px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); }
       .zone-template-name { color:#ddd; font-size:11px; font-weight:bold; line-height:1.3; }
       .zone-template-description { margin-top:4px; color:#888; font-size:10px; line-height:1.4; }
       .zone-template-meta { margin-top:6px; color:#666; font:9px Consolas,monospace; }
@@ -302,8 +324,24 @@
         if (zone) showZoneDetails(zone);
       });
 
+      // Also allow clicking the zone outline, not just the translucent fill.
+      ["alliance-zones-line", "alliance-zones-casing"].forEach(function (layerId) {
+        if (!map.getLayer(layerId)) return;
+        map.on("click", layerId, function (event) {
+          if (!event.features || !event.features.length) return;
+          const id = event.features[0].properties && event.features[0].properties.id;
+          const zone = Array.isArray(ALLIANCE_ZONES) ? ALLIANCE_ZONES.find(function (item) { return item.id === id; }) : null;
+          if (zone) showZoneDetails(zone);
+        });
+      });
+
       map.on("mouseenter", "alliance-zones-fill", function () { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "alliance-zones-fill", function () { map.getCanvas().style.cursor = ""; });
+      ["alliance-zones-line", "alliance-zones-casing"].forEach(function (layerId) {
+        if (!map.getLayer(layerId)) return;
+        map.on("mouseenter", layerId, function () { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", layerId, function () { map.getCanvas().style.cursor = ""; });
+      });
     }
 
     if (typeof map !== "undefined") {
