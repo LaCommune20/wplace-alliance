@@ -53,26 +53,46 @@
   }
 
   function installZoneHover() {
-    if (typeof map === "undefined" || !map || map.__lcZoneHoverInstalled) return false;
+    // map can exist as a global lexical binding while still being null during startup.
+    if (typeof map === "undefined" || map === null || !map || map.__lcZoneHoverInstalled) return false;
+
     const fillId = "alliance-zones-fill";
-    const lineId = "alliance-zones-line";
     if (!map.getLayer(fillId)) return false;
 
-    const source = map.getLayer(fillId).source;
+    const fillLayer = map.getLayer(fillId);
+    const source = fillLayer && fillLayer.source;
     if (!source) return false;
 
-    const hoverId = "alliance-zones-hover";
-    if (!map.getLayer(hoverId)) {
-      const sourceLayer = map.getLayer(fillId).sourceLayer;
+    const sourceLayer = fillLayer.sourceLayer;
+    const hoverFillId = "alliance-zones-hover-fill";
+    const hoverLineId = "alliance-zones-hover-line";
+
+    // A visible fill + bright outline makes the hover state obvious even on a busy WPlace canvas.
+    if (!map.getLayer(hoverFillId)) {
       const layer = {
-        id: hoverId,
+        id: hoverFillId,
+        type: "fill",
+        source,
+        paint: {
+          "fill-color": "#ffffff",
+          "fill-opacity": 0.16
+        },
+        filter: ["==", ["get", "id"], "__none__"]
+      };
+      if (sourceLayer) layer["source-layer"] = sourceLayer;
+      map.addLayer(layer);
+    }
+
+    if (!map.getLayer(hoverLineId)) {
+      const layer = {
+        id: hoverLineId,
         type: "line",
         source,
         paint: {
           "line-color": "#ffffff",
-          "line-width": 3,
-          "line-opacity": 0.95,
-          "line-blur": 0.2
+          "line-width": 5,
+          "line-opacity": 1,
+          "line-blur": 0
         },
         filter: ["==", ["get", "id"], "__none__"]
       };
@@ -81,24 +101,37 @@
     }
 
     let hoveredId = null;
-    const setHover = event => {
-      const feature = event.features && event.features[0];
-      const id = feature && feature.properties && feature.properties.id;
-      if (id == null) return;
-      hoveredId = String(id);
-      map.setFilter(hoverId, ["==", ["get", "id"], hoveredId]);
-      map.getCanvas().style.cursor = "pointer";
-    };
+
     const clearHover = () => {
+      if (hoveredId === null) return;
       hoveredId = null;
-      if (map.getLayer(hoverId)) map.setFilter(hoverId, ["==", ["get", "id"], "__none__"]);
+      if (map.getLayer(hoverFillId)) map.setFilter(hoverFillId, ["==", ["get", "id"], "__none__"]);
+      if (map.getLayer(hoverLineId)) map.setFilter(hoverLineId, ["==", ["get", "id"], "__none__"]);
       map.getCanvas().style.cursor = "";
     };
 
-    map.on("mouseenter", fillId, setHover);
+    const setHover = event => {
+      const features = event.features || [];
+      const feature = features[0];
+      const id = feature && feature.properties && feature.properties.id;
+      if (id == null) return clearHover();
+
+      const nextId = String(id);
+      if (hoveredId !== nextId) {
+        hoveredId = nextId;
+        const filter = ["==", ["get", "id"], hoveredId];
+        if (map.getLayer(hoverFillId)) map.setFilter(hoverFillId, filter);
+        if (map.getLayer(hoverLineId)) map.setFilter(hoverLineId, filter);
+      }
+      map.getCanvas().style.cursor = "pointer";
+    };
+
     map.on("mousemove", fillId, setHover);
+    map.on("mouseenter", fillId, setHover);
     map.on("mouseleave", fillId, clearHover);
+
     map.__lcZoneHoverInstalled = true;
+    console.log("Zone hover : effet de survol activé");
     return true;
   }
 
@@ -109,19 +142,23 @@
   setTimeout(apply, 500);
   setTimeout(apply, 1500);
 
-  if (!installZoneHover()) {
-    const retryHover = () => {
-      if (installZoneHover() && typeof map !== "undefined") {
-        map.off("styledata", retryHover);
-        map.off("idle", retryHover);
+  function retryHover() {
+    if (installZoneHover()) {
+      if (typeof map !== "undefined" && map) {
+        try { map.off("styledata", retryHover); } catch (_) {}
+        try { map.off("idle", retryHover); } catch (_) {}
       }
-    };
-    if (typeof map !== "undefined") {
-      map.on("styledata", retryHover);
-      map.on("idle", retryHover);
+      return true;
     }
-    setTimeout(installZoneHover, 100);
-    setTimeout(installZoneHover, 500);
-    setTimeout(installZoneHover, 1500);
+    return false;
   }
+
+  if (!retryHover() && typeof map !== "undefined" && map) {
+    map.on("styledata", retryHover);
+    map.on("idle", retryHover);
+  }
+  setTimeout(retryHover, 100);
+  setTimeout(retryHover, 500);
+  setTimeout(retryHover, 1500);
+  setTimeout(retryHover, 3000);
 })();
