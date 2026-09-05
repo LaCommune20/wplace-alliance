@@ -18,19 +18,7 @@ jobs:
 
       - name: Inject admin zone editor
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('commune/index.html')
-          s = p.read_text(encoding='utf-8')
-          tag = '<script src="admin-zones.js"></script>'
-          if tag not in s:
-              marker = '</body>'
-              if marker not in s:
-                  raise SystemExit('Cannot find </body> in commune/index.html')
-              s = s.replace(marker, tag + '\n' + marker, 1)
-              p.write_text(s, encoding='utf-8')
-          PY
-
+          python3 -c 'from pathlib import Path; p=Path("commune/index.html"); s=p.read_text(encoding="utf-8"); tag="<script src=\"admin-zones.js\"></script>"; marker="</body>"; assert marker in s; p.write_text(s if tag in s else s.replace(marker, tag+"\\n"+marker, 1), encoding="utf-8")'
           git config user.name 'LaCommune20'
           git config user.email 'mathieu.peter@live.fr'
           git add commune/index.html
