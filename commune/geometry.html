@@ -29,6 +29,7 @@ button,select{border:1px solid rgba(255,255,255,.12);border-radius:9px;backgroun
 const API="https://wplace-commune-api-dev.mathieu-peter.workers.dev";
 let map=null,zones=[],zone=null,originalPoints=[],points=[],originalCenter=null,center=null,markers=[],centerMarker=null,selected=-1,adding=false;
 function auth(options={}){const token=sessionStorage.getItem("wplace_session");return token?{...options,headers:{...(options.headers||{}),Authorization:"Bearer "+token},cache:"no-store"}:{...options,credentials:"include",cache:"no-store"}}
+function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[c]))}
 async function get(path){const r=await fetch(API+path,auth());let d=null;try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error||"HTTP "+r.status);return d}
 function parseJson(v){if(typeof v!=="string")return v;try{return JSON.parse(v)}catch{return null}}
 function parseCenter(v){const c=parseJson(v)||{};if(Array.isArray(c))return{lng:Number(c[0]),lat:Number(c[1])};return{lng:Number(c.longitude??c.lng),lat:Number(c.latitude??c.lat)}}
