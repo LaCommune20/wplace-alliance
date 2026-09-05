@@ -2,7 +2,7 @@
   "use strict";
 
   const API = "https://wplace-commune-api-dev.mathieu-peter.workers.dev";
-  const STYLE_ID = "lc-admin-zones-v1";
+  const STYLE_ID = "lc-admin-zones-v2";
   let zonesCache = [];
   let categoriesCache = [
     { slug: "commune", name: "La Commune" },
@@ -44,34 +44,46 @@
       : { ...extra, credentials: "include", cache: "no-store" };
   }
 
-  async function getOverview() {
-    const response = await fetch(API + "/api/admin/overview", authOptions());
+  async function getJson(path) {
+    const response = await fetch(API + path, authOptions());
     let data = null;
     try { data = await response.json(); } catch {}
-    if (!response.ok) throw new Error("HTTP " + response.status);
+    if (!response.ok) throw new Error(data?.error || "HTTP " + response.status);
     return data;
   }
 
+  async function loadZones() {
+    const data = await getJson("/api/admin/zones");
+    return Array.isArray(data) ? data : (Array.isArray(data?.zones) ? data.zones : []);
+  }
+
   async function loadZone(id) {
-    const known = zonesCache.find(z => String(z.id) === String(id) || String(z.slug) === String(id));
-    if (known) return known;
-    const response = await fetch(API + "/api/admin/zones/" + encodeURIComponent(id), authOptions());
-    let data = null;
-    try { data = await response.json(); } catch {}
-    if (!response.ok) throw new Error("HTTP " + response.status);
+    const data = await getJson("/api/admin/zones/" + encodeURIComponent(id));
     return data?.zone || data;
   }
 
   function parseCenter(value) {
     if (!value) return { longitude: "", latitude: "" };
     let c = value;
-    if (typeof c === "string") { try { c = JSON.parse(c); } catch { return { longitude: "", latitude: "" }; } }
+    if (typeof c === "string") {
+      try { c = JSON.parse(c); } catch { return { longitude: "", latitude: "" }; }
+    }
     if (Array.isArray(c)) return { longitude: c[0] ?? "", latitude: c[1] ?? "" };
     return { longitude: c.longitude ?? c.lng ?? "", latitude: c.latitude ?? c.lat ?? "" };
   }
 
   function esc(value) {
     return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  }
+
+  function updateCategories(zones) {
+    const discovered = [];
+    for (const z of zones || []) {
+      const slug = z.category_slug || z.category;
+      if (!slug || discovered.some(c => c.slug === slug)) continue;
+      discovered.push({ slug, name: z.category_name || (slug === "commune" ? "La Commune" : slug === "allie" ? "Allié" : slug === "neutre" ? "Neutre" : slug) });
+    }
+    if (discovered.length) categoriesCache = discovered;
   }
 
   function ensureModal() {
@@ -132,7 +144,12 @@
     const select = document.getElementById("lc-zone-category");
     const current = zone.category_slug || zone.category || "";
     select.innerHTML = categoriesCache.map(c => `<option value="${esc(c.slug)}" ${c.slug === current ? "selected" : ""}>${esc(c.name)}</option>`).join("");
-    const state = document.getElementById("lc-zone-state"); state.className = "lc-zone-state"; state.textContent = "";
+    if (current && !categoriesCache.some(c => c.slug === current)) {
+      select.insertAdjacentHTML("beforeend", `<option value="${esc(current)}" selected>${esc(zone.category_name || current)}</option>`);
+    }
+    const state = document.getElementById("lc-zone-state");
+    state.className = "lc-zone-state";
+    state.textContent = "";
     document.getElementById("lc-zone-modal").classList.add("open");
     setTimeout(() => document.getElementById("lc-zone-name").focus(), 0);
   }
@@ -147,7 +164,8 @@
     event.preventDefault();
     if (!editingZone) return;
     const state = document.getElementById("lc-zone-state");
-    state.className = "lc-zone-state"; state.textContent = "Enregistrement…";
+    state.className = "lc-zone-state";
+    state.textContent = "Enregistrement…";
     const body = {
       name: document.getElementById("lc-zone-name").value.trim(),
       slug: document.getElementById("lc-zone-slug").value.trim(),
@@ -162,7 +180,9 @@
       focus_zoom: Number(document.getElementById("lc-zone-zoom").value)
     };
     if (!Number.isFinite(body.center.longitude) || !Number.isFinite(body.center.latitude) || !Number.isFinite(body.focus_zoom)) {
-      state.className = "lc-zone-state error"; state.textContent = "Centre et zoom doivent être renseignés."; return;
+      state.className = "lc-zone-state error";
+      state.textContent = "Centre et zoom doivent être renseignés.";
+      return;
     }
     const id = editingZone.id ?? editingZone.slug;
     try {
@@ -170,9 +190,11 @@
       if (response.status === 405) {
         response = await fetch(API + "/api/admin/zones/" + encodeURIComponent(id), authOptions({ method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
       }
-      let data = null; try { data = await response.json(); } catch {}
+      let data = null;
+      try { data = await response.json(); } catch {}
       if (!response.ok) throw new Error(data?.error || data?.message || "HTTP " + response.status);
-      state.className = "lc-zone-state ok"; state.textContent = "Zone enregistrée.";
+      state.className = "lc-zone-state ok";
+      state.textContent = "Zone enregistrée.";
       setTimeout(() => { closeModal(); window.location.reload(); }, 550);
     } catch (error) {
       console.error("Zone update", error);
@@ -181,30 +203,52 @@
     }
   }
 
+  function findZoneForRow(row, index) {
+    const name = row.querySelector(".zone-name")?.textContent?.trim();
+    if (name) {
+      const byName = zonesCache.find(z => String(z.name || "").trim() === name);
+      if (byName) return byName;
+    }
+    return zonesCache[index] || null;
+  }
+
   function attachButtons() {
     const list = document.getElementById("zones-list");
-    if (!list) return;
+    if (!list || !zonesCache.length) return;
     [...list.querySelectorAll(".zone")].forEach((row, index) => {
       if (row.querySelector(".lc-zone-actions")) return;
-      const zone = zonesCache[index];
+      const zone = findZoneForRow(row, index);
       if (!zone) return;
-      const actions = document.createElement("div"); actions.className = "lc-zone-actions";
-      const button = document.createElement("button"); button.className = "lc-zone-edit"; button.type = "button"; button.textContent = "Modifier";
+      const actions = document.createElement("div");
+      actions.className = "lc-zone-actions";
+      const button = document.createElement("button");
+      button.className = "lc-zone-edit";
+      button.type = "button";
+      button.textContent = "Modifier";
       button.onclick = async () => {
-        try { openModal(await loadZone(zone.id ?? zone.slug)); } catch (e) { console.error(e); alert("Impossible de charger cette zone : " + e.message); }
+        button.disabled = true;
+        try {
+          openModal(await loadZone(zone.id ?? zone.slug));
+        } catch (e) {
+          console.error("Zone load", e);
+          alert("Impossible de charger cette zone : " + e.message);
+        } finally {
+          button.disabled = false;
+        }
       };
-      actions.appendChild(button); row.appendChild(actions);
+      actions.appendChild(button);
+      row.appendChild(actions);
     });
   }
 
   async function init() {
     try {
-      const overview = await getOverview();
-      zonesCache = Array.isArray(overview?.zones) ? overview.zones : [];
-      if (Array.isArray(overview?.categories) && overview.categories.length) categoriesCache = overview.categories;
+      zonesCache = await loadZones();
+      updateCategories(zonesCache);
       attachButtons();
+      console.log("Éditeur des zones : zones chargées", zonesCache.length);
     } catch (e) {
-      console.warn("Éditeur des zones : overview indisponible", e);
+      console.warn("Éditeur des zones : impossible de charger /api/admin/zones", e);
     }
     const observer = new MutationObserver(() => attachButtons());
     observer.observe(document.body, { childList: true, subtree: true });
