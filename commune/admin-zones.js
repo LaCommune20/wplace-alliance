@@ -2,13 +2,16 @@
   "use strict";
 
   const API = "https://wplace-commune-api-dev.mathieu-peter.workers.dev";
-  const STYLE_ID = "lc-admin-zones-v2";
+  const STYLE_ID = "lc-admin-zones-v3";
   let zonesCache = [];
   let categoriesCache = [
     { slug: "commune", name: "La Commune" },
     { slug: "allie", name: "Allié" },
+    { slug: "sympathisant", name: "Allié" },
+    { slug: "allie-neutre", name: "Allié" },
     { slug: "neutre", name: "Neutre" }
   ];
+  let editingZone = null;
 
   const style = document.createElement("style");
   style.id = STYLE_ID;
@@ -16,6 +19,7 @@
     .lc-zone-actions{margin-left:auto;display:flex;align-items:center;gap:5px;flex:0 0 auto}
     .lc-zone-edit{border:1px solid rgba(225,6,0,.32);background:rgba(225,6,0,.07);color:#ddd;border-radius:7px;padding:5px 7px;cursor:pointer;font-size:9px}
     .lc-zone-edit:hover{background:rgba(225,6,0,.16);border-color:rgba(225,6,0,.55);color:#fff}
+    .lc-zone-edit:disabled{opacity:.5;cursor:wait}
     #lc-zone-modal{position:fixed;inset:0;z-index:9000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.66);backdrop-filter:blur(3px)}
     #lc-zone-modal.open{display:flex}
     .lc-zone-dialog{width:min(720px,100%);max-height:min(90vh,760px);overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:#111;box-shadow:0 24px 80px rgba(0,0,0,.65);color:#eee}
@@ -62,6 +66,14 @@
     return data?.zone || data;
   }
 
+  function canonicalCategory(slug, fallback = "") {
+    const s = String(slug || "").toLowerCase();
+    if (s === "commune") return "La Commune";
+    if (s === "allie" || s === "sympathisant" || s === "allie-neutre") return "Allié";
+    if (s === "neutre") return "Neutre";
+    return fallback || slug || "—";
+  }
+
   function parseCenter(value) {
     if (!value) return { longitude: "", latitude: "" };
     let c = value;
@@ -76,14 +88,13 @@
     return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   }
 
-  function updateCategories(zones) {
-    const discovered = [];
-    for (const z of zones || []) {
-      const slug = z.category_slug || z.category;
-      if (!slug || discovered.some(c => c.slug === slug)) continue;
-      discovered.push({ slug, name: z.category_name || (slug === "commune" ? "La Commune" : slug === "allie" ? "Allié" : slug === "neutre" ? "Neutre" : slug) });
-    }
-    if (discovered.length) categoriesCache = discovered;
+  function normalizeCategoryTags() {
+    document.querySelectorAll("#zones-list .tag").forEach(tag => {
+      const value = tag.textContent.trim();
+      if (value === "La Commune") tag.textContent = "La Commune";
+      else if (/^Alliés?\s+(sympathisants?|neutres?)$/i.test(value) || /^(Allié|Allies)$/i.test(value)) tag.textContent = "Allié";
+      else if (/^Neutre$/i.test(value)) tag.textContent = "Neutre";
+    });
   }
 
   function ensureModal() {
@@ -92,24 +103,21 @@
     modal.id = "lc-zone-modal";
     modal.innerHTML = `
       <div class="lc-zone-dialog" role="dialog" aria-modal="true" aria-labelledby="lc-zone-title">
-        <div class="lc-zone-head">
-          <div><h3 id="lc-zone-title">Modifier la zone</h3><small id="lc-zone-subtitle">—</small></div>
-          <button class="lc-zone-close" id="lc-zone-close" type="button" aria-label="Fermer">×</button>
-        </div>
+        <div class="lc-zone-head"><div><h3 id="lc-zone-title">Modifier la zone</h3><small id="lc-zone-subtitle">—</small></div><button class="lc-zone-close" id="lc-zone-close" type="button" aria-label="Fermer">×</button></div>
         <form class="lc-zone-form" id="lc-zone-form">
-          <div class="lc-zone-field full"><label for="lc-zone-name">Nom</label><input id="lc-zone-name" name="name" required maxlength="120"></div>
-          <div class="lc-zone-field"><label for="lc-zone-slug">Slug</label><input id="lc-zone-slug" name="slug" required maxlength="80" pattern="[a-z0-9]+(?:-[a-z0-9]+)*"></div>
-          <div class="lc-zone-field"><label for="lc-zone-category">Catégorie</label><select id="lc-zone-category" name="category_slug"></select></div>
-          <div class="lc-zone-field full"><label for="lc-zone-description">Description</label><textarea id="lc-zone-description" name="description" maxlength="1000"></textarea></div>
-          <div class="lc-zone-field"><label for="lc-zone-continent">Continent</label><input id="lc-zone-continent" name="continent" required maxlength="80"></div>
-          <div class="lc-zone-field"><label for="lc-zone-country">Pays</label><input id="lc-zone-country" name="country" required maxlength="80"></div>
-          <div class="lc-zone-field"><label for="lc-zone-owner">Propriétaire</label><input id="lc-zone-owner" name="owner_name" maxlength="120"></div>
-          <label class="lc-zone-check"><input id="lc-zone-owner-public" name="owner_public" type="checkbox"> Afficher publiquement le propriétaire</label>
-          <div class="lc-zone-field"><label for="lc-zone-status">Statut</label><select id="lc-zone-status" name="status"><option value="active">Active</option><option value="archived">Archivée</option></select></div>
+          <div class="lc-zone-field full"><label for="lc-zone-name">Nom</label><input id="lc-zone-name" required maxlength="120"></div>
+          <div class="lc-zone-field"><label for="lc-zone-slug">Slug</label><input id="lc-zone-slug" required maxlength="80" pattern="[a-z0-9]+(?:-[a-z0-9]+)*"></div>
+          <div class="lc-zone-field"><label for="lc-zone-category">Catégorie</label><select id="lc-zone-category"></select></div>
+          <div class="lc-zone-field full"><label for="lc-zone-description">Description</label><textarea id="lc-zone-description" maxlength="1000"></textarea></div>
+          <div class="lc-zone-field"><label for="lc-zone-continent">Continent</label><input id="lc-zone-continent" required maxlength="80"></div>
+          <div class="lc-zone-field"><label for="lc-zone-country">Pays</label><input id="lc-zone-country" required maxlength="80"></div>
+          <div class="lc-zone-field"><label for="lc-zone-owner">Propriétaire</label><input id="lc-zone-owner" maxlength="120"></div>
+          <label class="lc-zone-check"><input id="lc-zone-owner-public" type="checkbox"> Afficher publiquement le propriétaire</label>
+          <div class="lc-zone-field"><label for="lc-zone-status">Statut</label><select id="lc-zone-status"><option value="active">Active</option><option value="archived">Archivée</option></select></div>
           <div class="lc-zone-field"><label>Version actuelle</label><input id="lc-zone-version" class="lc-zone-readonly" readonly></div>
-          <div class="lc-zone-field"><label for="lc-zone-lon">Centre — longitude</label><input id="lc-zone-lon" name="longitude" type="number" step="any" min="-180" max="180"></div>
-          <div class="lc-zone-field"><label for="lc-zone-lat">Centre — latitude</label><input id="lc-zone-lat" name="latitude" type="number" step="any" min="-90" max="90"></div>
-          <div class="lc-zone-field"><label for="lc-zone-zoom">Zoom initial</label><input id="lc-zone-zoom" name="focus_zoom" type="number" step="0.1" min="0" max="24"></div>
+          <div class="lc-zone-field"><label for="lc-zone-lon">Centre — longitude</label><input id="lc-zone-lon" type="number" step="any" min="-180" max="180"></div>
+          <div class="lc-zone-field"><label for="lc-zone-lat">Centre — latitude</label><input id="lc-zone-lat" type="number" step="any" min="-90" max="90"></div>
+          <div class="lc-zone-field"><label for="lc-zone-zoom">Zoom initial</label><input id="lc-zone-zoom" type="number" step="0.1" min="0" max="24"></div>
           <div class="lc-zone-actions-bottom"><div id="lc-zone-state" class="lc-zone-state"></div><div style="display:flex;gap:7px"><button class="lc-zone-btn" id="lc-zone-cancel" type="button">Annuler</button><button class="lc-zone-btn primary" type="submit">Enregistrer</button></div></div>
         </form>
       </div>`;
@@ -121,13 +129,10 @@
     document.getElementById("lc-zone-form").addEventListener("submit", saveZone);
   }
 
-  let editingZone = null;
-
   function openModal(zone) {
     ensureModal();
     editingZone = zone;
     const center = parseCenter(zone.center);
-    document.getElementById("lc-zone-title").textContent = "Modifier la zone";
     document.getElementById("lc-zone-subtitle").textContent = (zone.slug || zone.id || "zone") + " · v" + (zone.version ?? "—");
     document.getElementById("lc-zone-name").value = zone.name || "";
     document.getElementById("lc-zone-slug").value = zone.slug || "";
@@ -141,11 +146,19 @@
     document.getElementById("lc-zone-lon").value = center.longitude;
     document.getElementById("lc-zone-lat").value = center.latitude;
     document.getElementById("lc-zone-zoom").value = zone.focus_zoom ?? "";
-    const select = document.getElementById("lc-zone-category");
     const current = zone.category_slug || zone.category || "";
-    select.innerHTML = categoriesCache.map(c => `<option value="${esc(c.slug)}" ${c.slug === current ? "selected" : ""}>${esc(c.name)}</option>`).join("");
-    if (current && !categoriesCache.some(c => c.slug === current)) {
-      select.insertAdjacentHTML("beforeend", `<option value="${esc(current)}" selected>${esc(zone.category_name || current)}</option>`);
+    const select = document.getElementById("lc-zone-category");
+    const seen = new Set();
+    select.innerHTML = "";
+    for (const c of categoriesCache) {
+      const label = canonicalCategory(c.slug, c.name);
+      if (seen.has(label)) continue;
+      seen.add(label);
+      const option = document.createElement("option");
+      option.value = c.slug;
+      option.textContent = label;
+      if (c.slug === current || label === canonicalCategory(current)) option.selected = true;
+      select.appendChild(option);
     }
     const state = document.getElementById("lc-zone-state");
     state.className = "lc-zone-state";
@@ -187,9 +200,7 @@
     const id = editingZone.id ?? editingZone.slug;
     try {
       let response = await fetch(API + "/api/admin/zones/" + encodeURIComponent(id), authOptions({ method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
-      if (response.status === 405) {
-        response = await fetch(API + "/api/admin/zones/" + encodeURIComponent(id), authOptions({ method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
-      }
+      if (response.status === 405) response = await fetch(API + "/api/admin/zones/" + encodeURIComponent(id), authOptions({ method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
       let data = null;
       try { data = await response.json(); } catch {}
       if (!response.ok) throw new Error(data?.error || data?.message || "HTTP " + response.status);
@@ -206,13 +217,14 @@
   function findZoneForRow(row, index) {
     const name = row.querySelector(".zone-name")?.textContent?.trim();
     if (name) {
-      const byName = zonesCache.find(z => String(z.name || "").trim() === name);
-      if (byName) return byName;
+      const match = zonesCache.find(z => String(z.name || "").trim() === name);
+      if (match) return match;
     }
     return zonesCache[index] || null;
   }
 
   function attachButtons() {
+    normalizeCategoryTags();
     const list = document.getElementById("zones-list");
     if (!list || !zonesCache.length) return;
     [...list.querySelectorAll(".zone")].forEach((row, index) => {
@@ -227,14 +239,9 @@
       button.textContent = "Modifier";
       button.onclick = async () => {
         button.disabled = true;
-        try {
-          openModal(await loadZone(zone.id ?? zone.slug));
-        } catch (e) {
-          console.error("Zone load", e);
-          alert("Impossible de charger cette zone : " + e.message);
-        } finally {
-          button.disabled = false;
-        }
+        try { openModal(await loadZone(zone.id ?? zone.slug)); }
+        catch (e) { console.error("Zone load", e); alert("Impossible de charger cette zone : " + e.message); }
+        finally { button.disabled = false; }
       };
       actions.appendChild(button);
       row.appendChild(actions);
@@ -244,16 +251,21 @@
   async function init() {
     try {
       zonesCache = await loadZones();
-      updateCategories(zonesCache);
+      const slugs = [];
+      for (const z of zonesCache) {
+        const slug = z.category_slug || z.category;
+        if (!slug || slugs.includes(slug)) continue;
+        slugs.push(slug);
+      }
+      if (slugs.length) categoriesCache = slugs.map(slug => ({ slug, name: canonicalCategory(slug) }));
       attachButtons();
-      console.log("Éditeur des zones : zones chargées", zonesCache.length);
     } catch (e) {
-      console.warn("Éditeur des zones : impossible de charger /api/admin/zones", e);
+      console.warn("Éditeur des zones : impossible de charger les zones", e);
     }
     const observer = new MutationObserver(() => attachButtons());
     observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(attachButtons, 400);
-    setTimeout(attachButtons, 1200);
+    setTimeout(attachButtons, 300);
+    setTimeout(attachButtons, 1000);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
