@@ -15,66 +15,45 @@
     </span>`;
 
   const style = document.createElement("style");
-  style.id = "lc-visual-identity-v2";
+  style.id = "lc-visual-identity-v3";
   style.textContent = `
     .lc-brand-mark-v2{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:6px;overflow:hidden;background:#080808;border:1px solid rgba(255,255,255,.12)}
     .lc-brand-mark-v2 svg{width:100%;height:100%;display:block}
     #title .lc-brand-mark:not(.lc-brand-mark-v2){display:none!important}
     #panel{min-width:270px!important;padding:8px 11px!important;position:relative!important}
-    #title{gap:7px!important;font-size:15px!important}
-    #subtitle{margin-top:2px!important;font-size:9px!important}
-    #info{margin-top:5px!important;padding-top:5px!important;font-size:8px!important;line-height:1.3!important;max-height:48px;overflow:hidden;opacity:.52}
-
-    #zones-tab{top:106px!important;width:150px!important;padding:7px 10px!important;border-radius:10px!important;cursor:pointer!important}
+    #title{display:flex!important;align-items:center!important;gap:7px!important;font-size:15px!important;line-height:1.15!important;padding-right:58px!important}
+    .lc-brand-text{display:flex;flex-direction:column;min-width:0;line-height:1.05}
+    .lc-brand-name{font-size:15px;font-weight:700;color:#fff;white-space:nowrap}
+    .lc-brand-credit{display:block;margin-top:3px;color:#777;font-size:7px;font-weight:400;letter-spacing:.15px;line-height:1}
+    #subtitle{margin-top:4px!important;font-size:9px!important}
+    #info{margin-top:5px!important;padding-top:5px!important;font-size:8px!important;line-height:1.25!important;max-height:38px;overflow:hidden;opacity:.48}
+    #zones-tab{top:112px!important;width:150px!important;padding:7px 10px!important;border-radius:10px!important;cursor:pointer!important}
     #zones-tab .lc-icon{display:none!important}
     .lc-zones-mark{width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;color:#e10600}
     .lc-zones-mark svg{width:100%;height:100%;display:block}
     #zones-tab{gap:6px!important}
-    #zones-panel{top:142px!important;width:270px!important}
-
-    #lc-admin-link{display:none;position:absolute;top:7px;right:8px;z-index:2;align-items:center;justify-content:center;padding:5px 8px;border:1px solid rgba(225,6,0,.32);border-radius:7px;background:rgba(225,6,0,.08);color:#bbb;text-decoration:none;font-size:8px;font-weight:bold;letter-spacing:.3px}
+    #zones-panel{top:148px!important;width:270px!important}
+    #lc-admin-link{display:none;position:absolute;top:7px;right:8px;z-index:2;align-items:center;justify-content:center;padding:5px 8px;border:1px solid rgba(225,6,0,.32);border-radius:7px;background:rgba(225,6,0,.08);color:#bbb;text-decoration:none;font-size:8px;font-weight:bold;letter-spacing:.2px}
     #lc-admin-link:hover{background:rgba(225,6,0,.16);border-color:rgba(225,6,0,.6);color:#fff}
-
-    .lc-brand-credit{display:block;margin-top:1px;margin-left:29px;color:#777;font-size:7px;font-weight:normal;letter-spacing:.15px;line-height:1.1}
-    @media(max-width:700px){#zones-tab{top:100px!important;width:150px!important}#zones-panel{top:136px!important}#lc-admin-link{top:6px;right:7px;padding:5px 7px}}
+    @media(max-width:700px){#title{padding-right:52px!important}.lc-brand-name{font-size:14px}#zones-tab{top:106px!important;width:150px!important}#zones-panel{top:142px!important}#lc-admin-link{top:6px;right:7px;padding:5px 7px}}
   `;
   document.head.appendChild(style);
 
   async function canAccessAdmin() {
     try {
-      const options = typeof authFetchOptions === "function"
-        ? authFetchOptions()
-        : {credentials:"include",cache:"no-store"};
+      const options = typeof authFetchOptions === "function" ? authFetchOptions() : {credentials:"include",cache:"no-store"};
       const response = await fetch(AUTH_ME_URL, options);
       if (!response.ok) return false;
       const data = await response.json();
       return ["admin", "moderator"].includes(data?.access);
-    } catch (_) {
-      return false;
-    }
+    } catch (_) { return false; }
   }
 
   function apply() {
     const title = document.getElementById("title");
-    if (title) {
-      const old = title.querySelector(".lc-brand-mark");
-      if (old) old.remove();
-      if (!title.querySelector(".lc-brand-mark-v2")) title.insertAdjacentHTML("afterbegin", BRAND_MARK);
-
-      // Remplace uniquement le texte existant du titre, sans toucher au reste du HUD.
-      for (const node of title.childNodes) {
-        if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim()) {
-          node.nodeValue = "WPlace La Commune";
-          break;
-        }
-      }
-      let credit = title.querySelector(".lc-brand-credit");
-      if (!credit) {
-        credit = document.createElement("span");
-        credit.className = "lc-brand-credit";
-        credit.textContent = "made by bergamottto";
-        title.appendChild(credit);
-      }
+    if (title && !title.dataset.brandV3) {
+      title.dataset.brandV3 = "1";
+      title.innerHTML = `${BRAND_MARK}<span class="lc-brand-text"><span class="lc-brand-name">WPlace La Commune</span><span class="lc-brand-credit">made by bergamottto</span></span>`;
     }
 
     const panel = document.getElementById("panel");
@@ -82,19 +61,17 @@
       const link = document.createElement("a");
       link.id = "lc-admin-link";
       link.href = "commune/index.html";
-      link.textContent = "ADMINISTRATION";
+      link.textContent = "Admin";
       link.title = "Administration";
       panel.appendChild(link);
-      canAccessAdmin().then(allowed => {
-        if (allowed) link.style.display = "inline-flex";
-      });
+      canAccessAdmin().then(allowed => { if (allowed) link.style.display = "inline-flex"; });
     }
 
     const tab = document.getElementById("zones-tab");
-    if (tab && !tab.dataset.brandV2) {
-      tab.dataset.brandV2 = "1";
-      const text = tab.textContent.trim().replace(/^\s*[◇◈▢□]+\s*/, "").replace(/^(FERMER|ZONES)$/i, "ZONES");
-      tab.innerHTML = `${ZONES_MARK}<span>${text === "FERMER" ? "FERMER" : "ZONES"}</span>`;
+    if (tab && !tab.dataset.brandV3) {
+      tab.dataset.brandV3 = "1";
+      const text = tab.textContent.trim().replace(/^\s*[◇◈▢□]+\s*/, "");
+      tab.innerHTML = `${ZONES_MARK}<span>${text || "ZONES"}</span>`;
     }
   }
 
@@ -108,7 +85,6 @@
     const sourceLayer = fillLayer.sourceLayer;
     const hoverFillId = "alliance-zones-hover-fill";
     const hoverLineId = "alliance-zones-hover-line";
-
     if (!map.getLayer(hoverFillId)) {
       const layer = {id:hoverFillId,type:"fill",source,paint:{"fill-color":"#ffffff","fill-opacity":0.16},filter:["==",["get","id"],"__none__"]};
       if (sourceLayer) layer["source-layer"] = sourceLayer;
@@ -119,7 +95,6 @@
       if (sourceLayer) layer["source-layer"] = sourceLayer;
       map.addLayer(layer);
     }
-
     let hoveredId = null;
     const clearHover = () => {
       if (hoveredId === null) return;
