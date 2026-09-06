@@ -21,9 +21,8 @@
     if (loading) return loading;
     loading = (async () => {
       try {
-        if (typeof auth !== "function") return;
         const api = typeof API !== "undefined" ? API : "";
-        const r = await fetch(api + "/api/admin/zones", auth());
+        const r = await fetch(api + "/api/zones", {cache:"no-store"});
         if (!r.ok) throw new Error("HTTP " + r.status);
         const d = await r.json();
         otherZones = Array.isArray(d) ? d : (Array.isArray(d?.zones) ? d.zones : []);
@@ -178,8 +177,7 @@
 
   function patchCreateClicks() {
     const m = getMap();
-    if (!m || m.__boundarySnapCreate) return;
-    if (mode !== "create") return;
+    if (!m || m.__boundarySnapCreate || mode !== "create") return;
     m.__boundarySnapCreate = true;
     m.on("click", () => {
       if (!enabled) return;
@@ -207,8 +205,6 @@
     loadZones();
   }
 
-  // The editor uses the same global geometry primitives in edit and create mode.
-  // Keep initialization bounded and avoid MutationObservers that could loop.
   const timer = setInterval(() => {
     const m = getMap();
     if (m) {
