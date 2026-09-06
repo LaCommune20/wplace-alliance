@@ -19,23 +19,35 @@
   const style = document.createElement("style");
   style.id = "lc-visual-identity-v2";
   style.textContent = `
+    /* Identité : on garde la géométrie native de la carte et on compacte seulement le HUD. */
     .lc-brand-mark-v2{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:6px;overflow:hidden;background:#080808;border:1px solid rgba(255,255,255,.12)}
     .lc-brand-mark-v2 svg{width:100%;height:100%;display:block}
     #title .lc-brand-mark:not(.lc-brand-mark-v2){display:none!important}
-    #panel{min-width:270px!important;padding:8px 11px!important}
+
+    /* HUD supérieur : petit, lisible, sans déplacer les autres éléments. */
+    #panel{min-width:270px!important;padding:9px 11px!important;border-radius:11px!important}
     #title{gap:7px!important;font-size:15px!important}
     #subtitle{margin-top:2px!important;font-size:9px!important}
-    #info{margin-top:5px!important;padding-top:5px!important;font-size:8px!important;line-height:1.3!important;max-height:48px;overflow:hidden;opacity:.52}
-    #zones-tab{top:128px!important;width:150px!important;padding:7px 10px!important;border-radius:10px!important;cursor:pointer!important}
+    #info{margin-top:4px!important;padding-top:4px!important;font-size:8px!important;line-height:1.25!important;max-height:22px!important;overflow:hidden!important;opacity:.42!important}
+
+    /* Contrôle ZONES : petit bouton flottant sous le HUD. */
+    #zones-tab{top:86px!important;left:10px!important;width:150px!important;padding:7px 10px!important;border-radius:10px!important;cursor:pointer!important}
     #zones-tab .lc-icon{display:none!important}
     .lc-zones-mark{width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;color:#e10600}
     .lc-zones-mark svg{width:100%;height:100%;display:block}
     #zones-tab{gap:6px!important}
-    #zones-panel{top:164px!important;width:270px!important}
-    #lc-admin-link{position:absolute;top:7px;right:8px;z-index:2;display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border:1px solid rgba(225,6,0,.32);border-radius:7px;background:rgba(225,6,0,.08);color:#bbb;text-decoration:none;font-size:8px;font-weight:bold;letter-spacing:.3px}
-    #lc-admin-link:hover{background:rgba(225,6,0,.16);border-color:rgba(225,6,0,.6);color:#fff}
-    #panel{position:relative!important}
-    @media(max-width:700px){#zones-tab{top:119px!important;width:150px!important}#zones-panel{top:154px!important}#lc-admin-link{top:6px;right:7px;padding:5px 7px}}
+    #zones-panel{top:120px!important;left:10px!important;width:270px!important}
+
+    /* Administration : bouton autonome, donc indépendant du contenu du HUD. */
+    #lc-admin-link{position:absolute;top:10px;left:288px;z-index:2000;display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border:1px solid rgba(225,6,0,.42);border-radius:8px;background:rgba(15,15,15,.94);box-shadow:0 4px 18px rgba(0,0,0,.38);color:#ddd;text-decoration:none;font-size:9px;font-weight:bold;letter-spacing:.35px;white-space:nowrap}
+    #lc-admin-link:hover{background:rgba(35,35,35,.97);border-color:rgba(225,6,0,.75);color:#fff}
+
+    @media(max-width:700px){
+      #panel{min-width:235px!important;max-width:calc(100vw - 16px)!important}
+      #zones-tab{left:8px!important;top:82px!important;width:150px!important}
+      #zones-panel{left:8px!important;top:116px!important;width:min(310px,calc(100vw - 16px))!important}
+      #lc-admin-link{top:10px;left:auto;right:8px;padding:6px 8px}
+    }
   `;
   document.head.appendChild(style);
 
@@ -47,14 +59,16 @@
       if (!title.querySelector(".lc-brand-mark-v2")) title.insertAdjacentHTML("afterbegin", BRAND_MARK);
     }
 
-    const panel = document.getElementById("panel");
-    if (panel && !document.getElementById("lc-admin-link")) {
+    // Le bouton ADMIN est ajouté au body, pas au HUD : aucun risque de modifier
+    // sa hauteur ou d'être masqué par son contenu dynamique.
+    if (!document.getElementById("lc-admin-link")) {
       const link = document.createElement("a");
       link.id = "lc-admin-link";
       link.href = "commune/index.html";
-      link.textContent = "ADMIN";
+      link.textContent = "ADMINISTRATION";
       link.title = "Administration";
-      panel.appendChild(link);
+      link.setAttribute("aria-label", "Ouvrir l'administration");
+      document.body.appendChild(link);
     }
 
     const tab = document.getElementById("zones-tab");
@@ -66,7 +80,6 @@
   }
 
   function installZoneHover() {
-    // map can exist as a global lexical binding while still being null during startup.
     if (typeof map === "undefined" || map === null || !map || map.__lcZoneHoverInstalled) return false;
 
     const fillId = "alliance-zones-fill";
