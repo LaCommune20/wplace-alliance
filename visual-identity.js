@@ -32,7 +32,10 @@
     .lc-zones-mark svg{width:100%;height:100%;display:block}
     #zones-tab{gap:6px!important}
     #zones-panel{top:164px!important;width:270px!important}
-    @media(max-width:700px){#zones-tab{top:119px!important;width:150px!important}#zones-panel{top:154px!important}}
+    #lc-admin-link{position:absolute;top:7px;right:8px;z-index:2;display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border:1px solid rgba(225,6,0,.32);border-radius:7px;background:rgba(225,6,0,.08);color:#bbb;text-decoration:none;font-size:8px;font-weight:bold;letter-spacing:.3px}
+    #lc-admin-link:hover{background:rgba(225,6,0,.16);border-color:rgba(225,6,0,.6);color:#fff}
+    #panel{position:relative!important}
+    @media(max-width:700px){#zones-tab{top:119px!important;width:150px!important}#zones-panel{top:154px!important}#lc-admin-link{top:6px;right:7px;padding:5px 7px}}
   `;
   document.head.appendChild(style);
 
@@ -42,6 +45,16 @@
       const old = title.querySelector(".lc-brand-mark");
       if (old) old.remove();
       if (!title.querySelector(".lc-brand-mark-v2")) title.insertAdjacentHTML("afterbegin", BRAND_MARK);
+    }
+
+    const panel = document.getElementById("panel");
+    if (panel && !document.getElementById("lc-admin-link")) {
+      const link = document.createElement("a");
+      link.id = "lc-admin-link";
+      link.href = "commune/index.html";
+      link.textContent = "ADMIN";
+      link.title = "Administration";
+      panel.appendChild(link);
     }
 
     const tab = document.getElementById("zones-tab");
@@ -67,16 +80,12 @@
     const hoverFillId = "alliance-zones-hover-fill";
     const hoverLineId = "alliance-zones-hover-line";
 
-    // A visible fill + bright outline makes the hover state obvious even on a busy WPlace canvas.
     if (!map.getLayer(hoverFillId)) {
       const layer = {
         id: hoverFillId,
         type: "fill",
         source,
-        paint: {
-          "fill-color": "#ffffff",
-          "fill-opacity": 0.16
-        },
+        paint: {"fill-color":"#ffffff","fill-opacity":0.16},
         filter: ["==", ["get", "id"], "__none__"]
       };
       if (sourceLayer) layer["source-layer"] = sourceLayer;
@@ -88,12 +97,7 @@
         id: hoverLineId,
         type: "line",
         source,
-        paint: {
-          "line-color": "#ffffff",
-          "line-width": 5,
-          "line-opacity": 1,
-          "line-blur": 0
-        },
+        paint: {"line-color":"#ffffff","line-width":5,"line-opacity":1,"line-blur":0},
         filter: ["==", ["get", "id"], "__none__"]
       };
       if (sourceLayer) layer["source-layer"] = sourceLayer;
@@ -101,7 +105,6 @@
     }
 
     let hoveredId = null;
-
     const clearHover = () => {
       if (hoveredId === null) return;
       hoveredId = null;
@@ -109,13 +112,10 @@
       if (map.getLayer(hoverLineId)) map.setFilter(hoverLineId, ["==", ["get", "id"], "__none__"]);
       map.getCanvas().style.cursor = "";
     };
-
     const setHover = event => {
-      const features = event.features || [];
-      const feature = features[0];
+      const feature = (event.features || [])[0];
       const id = feature && feature.properties && feature.properties.id;
       if (id == null) return clearHover();
-
       const nextId = String(id);
       if (hoveredId !== nextId) {
         hoveredId = nextId;
@@ -125,17 +125,24 @@
       }
       map.getCanvas().style.cursor = "pointer";
     };
-
     map.on("mousemove", fillId, setHover);
     map.on("mouseenter", fillId, setHover);
     map.on("mouseleave", fillId, clearHover);
-
     map.__lcZoneHoverInstalled = true;
     console.log("Zone hover : effet de survol activé");
     return true;
   }
 
+  function loadTemplateDownload() {
+    if (document.querySelector('script[data-lc-template-download="1"]')) return;
+    const script = document.createElement("script");
+    script.src = "template-download.js";
+    script.dataset.lcTemplateDownload = "1";
+    document.body.appendChild(script);
+  }
+
   apply();
+  loadTemplateDownload();
   const observer = new MutationObserver(apply);
   observer.observe(document.documentElement, { childList: true, subtree: true });
   setTimeout(apply, 100);
