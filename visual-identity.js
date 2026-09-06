@@ -134,8 +134,6 @@
 
   apply();
   loadTemplateDownload();
-  const observer = new MutationObserver(apply);
-  observer.observe(document.documentElement,{childList:true,subtree:true});
   setTimeout(apply,100);
   setTimeout(apply,500);
   setTimeout(apply,1500);
