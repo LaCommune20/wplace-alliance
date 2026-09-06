@@ -1,8 +1,6 @@
 (() => {
   "use strict";
 
-  // Marque rouge/noir volontairement simple : pas de "D", pas d'emoji,
-  // et une diagonale qui reprend directement la DA du projet.
   const BRAND_MARK = `
     <span class="lc-brand-mark-v2" aria-hidden="true">
       <svg viewBox="0 0 32 32" role="img">
@@ -19,37 +17,44 @@
   const style = document.createElement("style");
   style.id = "lc-visual-identity-v2";
   style.textContent = `
-    /* Identité : on garde la géométrie native de la carte et on compacte seulement le HUD. */
     .lc-brand-mark-v2{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:6px;overflow:hidden;background:#080808;border:1px solid rgba(255,255,255,.12)}
     .lc-brand-mark-v2 svg{width:100%;height:100%;display:block}
     #title .lc-brand-mark:not(.lc-brand-mark-v2){display:none!important}
-
-    /* HUD supérieur : petit, lisible, sans déplacer les autres éléments. */
-    #panel{min-width:270px!important;padding:9px 11px!important;border-radius:11px!important}
+    #panel{min-width:270px!important;padding:8px 11px!important;position:relative!important}
     #title{gap:7px!important;font-size:15px!important}
     #subtitle{margin-top:2px!important;font-size:9px!important}
-    #info{margin-top:4px!important;padding-top:4px!important;font-size:8px!important;line-height:1.25!important;max-height:22px!important;overflow:hidden!important;opacity:.42!important}
+    #info{margin-top:5px!important;padding-top:5px!important;font-size:8px!important;line-height:1.3!important;max-height:48px;overflow:hidden;opacity:.52}
 
-    /* Contrôle ZONES : petit bouton flottant sous le HUD. */
-    #zones-tab{top:86px!important;left:10px!important;width:150px!important;padding:7px 10px!important;border-radius:10px!important;cursor:pointer!important}
+    /* Le contrôle ZONES reste immédiatement sous l'entête, sans grand vide. */
+    #zones-tab{top:106px!important;width:150px!important;padding:7px 10px!important;border-radius:10px!important;cursor:pointer!important}
     #zones-tab .lc-icon{display:none!important}
     .lc-zones-mark{width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;color:#e10600}
     .lc-zones-mark svg{width:100%;height:100%;display:block}
     #zones-tab{gap:6px!important}
-    #zones-panel{top:120px!important;left:10px!important;width:270px!important}
+    #zones-panel{top:142px!important;width:270px!important}
 
-    /* Administration : bouton autonome, donc indépendant du contenu du HUD. */
-    #lc-admin-link{position:absolute;top:10px;left:288px;z-index:2000;display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border:1px solid rgba(225,6,0,.42);border-radius:8px;background:rgba(15,15,15,.94);box-shadow:0 4px 18px rgba(0,0,0,.38);color:#ddd;text-decoration:none;font-size:9px;font-weight:bold;letter-spacing:.35px;white-space:nowrap}
-    #lc-admin-link:hover{background:rgba(35,35,35,.97);border-color:rgba(225,6,0,.75);color:#fff}
+    /* Administration : visible uniquement après vérification de l'accès admin/modérateur. */
+    #lc-admin-link{display:none;position:absolute;top:7px;right:8px;z-index:2;align-items:center;justify-content:center;padding:5px 8px;border:1px solid rgba(225,6,0,.32);border-radius:7px;background:rgba(225,6,0,.08);color:#bbb;text-decoration:none;font-size:8px;font-weight:bold;letter-spacing:.3px}
+    #lc-admin-link:hover{background:rgba(225,6,0,.16);border-color:rgba(225,6,0,.6);color:#fff}
 
-    @media(max-width:700px){
-      #panel{min-width:235px!important;max-width:calc(100vw - 16px)!important}
-      #zones-tab{left:8px!important;top:82px!important;width:150px!important}
-      #zones-panel{left:8px!important;top:116px!important;width:min(310px,calc(100vw - 16px))!important}
-      #lc-admin-link{top:10px;left:auto;right:8px;padding:6px 8px}
-    }
+    .lc-brand-credit{display:block;margin-top:1px;color:#777;font-size:7px;font-weight:normal;letter-spacing:.15px;line-height:1.1}
+    @media(max-width:700px){#zones-tab{top:100px!important;width:150px!important}#zones-panel{top:136px!important}#lc-admin-link{top:6px;right:7px;padding:5px 7px}}
   `;
   document.head.appendChild(style);
+
+  async function canAccessAdmin() {
+    try {
+      const options = typeof authFetchOptions === "function"
+        ? authFetchOptions()
+        : {credentials:"include",cache:"no-store"};
+      const response = await fetch(AUTH_ME_URL, options);
+      if (!response.ok) return false;
+      const data = await response.json();
+      return ["admin", "moderator"].includes(data?.access);
+    } catch (_) {
+      return false;
+    }
+  }
 
   function apply() {
     const title = document.getElementById("title");
@@ -57,18 +62,27 @@
       const old = title.querySelector(".lc-brand-mark");
       if (old) old.remove();
       if (!title.querySelector(".lc-brand-mark-v2")) title.insertAdjacentHTML("afterbegin", BRAND_MARK);
+
+      let credit = title.querySelector(".lc-brand-credit");
+      if (!credit) {
+        credit = document.createElement("span");
+        credit.className = "lc-brand-credit";
+        credit.textContent = "made by bergamottto";
+        title.appendChild(credit);
+      }
     }
 
-    // Le bouton ADMIN est ajouté au body, pas au HUD : aucun risque de modifier
-    // sa hauteur ou d'être masqué par son contenu dynamique.
-    if (!document.getElementById("lc-admin-link")) {
+    const panel = document.getElementById("panel");
+    if (panel && !document.getElementById("lc-admin-link")) {
       const link = document.createElement("a");
       link.id = "lc-admin-link";
       link.href = "commune/index.html";
       link.textContent = "ADMINISTRATION";
       link.title = "Administration";
-      link.setAttribute("aria-label", "Ouvrir l'administration");
-      document.body.appendChild(link);
+      panel.appendChild(link);
+      canAccessAdmin().then(allowed => {
+        if (allowed) link.style.display = "inline-flex";
+      });
     }
 
     const tab = document.getElementById("zones-tab");
@@ -81,38 +95,22 @@
 
   function installZoneHover() {
     if (typeof map === "undefined" || map === null || !map || map.__lcZoneHoverInstalled) return false;
-
     const fillId = "alliance-zones-fill";
     if (!map.getLayer(fillId)) return false;
-
     const fillLayer = map.getLayer(fillId);
     const source = fillLayer && fillLayer.source;
     if (!source) return false;
-
     const sourceLayer = fillLayer.sourceLayer;
     const hoverFillId = "alliance-zones-hover-fill";
     const hoverLineId = "alliance-zones-hover-line";
 
     if (!map.getLayer(hoverFillId)) {
-      const layer = {
-        id: hoverFillId,
-        type: "fill",
-        source,
-        paint: {"fill-color":"#ffffff","fill-opacity":0.16},
-        filter: ["==", ["get", "id"], "__none__"]
-      };
+      const layer = {id:hoverFillId,type:"fill",source,paint:{"fill-color":"#ffffff","fill-opacity":0.16},filter:["==",["get","id"],"__none__"]};
       if (sourceLayer) layer["source-layer"] = sourceLayer;
       map.addLayer(layer);
     }
-
     if (!map.getLayer(hoverLineId)) {
-      const layer = {
-        id: hoverLineId,
-        type: "line",
-        source,
-        paint: {"line-color":"#ffffff","line-width":5,"line-opacity":1,"line-blur":0},
-        filter: ["==", ["get", "id"], "__none__"]
-      };
+      const layer = {id:hoverLineId,type:"line",source,paint:{"line-color":"#ffffff","line-width":5,"line-opacity":1,"line-blur":0},filter:["==",["get","id"],"__none__"]};
       if (sourceLayer) layer["source-layer"] = sourceLayer;
       map.addLayer(layer);
     }
@@ -121,8 +119,8 @@
     const clearHover = () => {
       if (hoveredId === null) return;
       hoveredId = null;
-      if (map.getLayer(hoverFillId)) map.setFilter(hoverFillId, ["==", ["get", "id"], "__none__"]);
-      if (map.getLayer(hoverLineId)) map.setFilter(hoverLineId, ["==", ["get", "id"], "__none__"]);
+      if (map.getLayer(hoverFillId)) map.setFilter(hoverFillId,["==",["get","id"],"__none__"]);
+      if (map.getLayer(hoverLineId)) map.setFilter(hoverLineId,["==",["get","id"],"__none__"]);
       map.getCanvas().style.cursor = "";
     };
     const setHover = event => {
@@ -132,15 +130,15 @@
       const nextId = String(id);
       if (hoveredId !== nextId) {
         hoveredId = nextId;
-        const filter = ["==", ["get", "id"], hoveredId];
-        if (map.getLayer(hoverFillId)) map.setFilter(hoverFillId, filter);
-        if (map.getLayer(hoverLineId)) map.setFilter(hoverLineId, filter);
+        const filter = ["==",["get","id"],hoveredId];
+        if (map.getLayer(hoverFillId)) map.setFilter(hoverFillId,filter);
+        if (map.getLayer(hoverLineId)) map.setFilter(hoverLineId,filter);
       }
       map.getCanvas().style.cursor = "pointer";
     };
-    map.on("mousemove", fillId, setHover);
-    map.on("mouseenter", fillId, setHover);
-    map.on("mouseleave", fillId, clearHover);
+    map.on("mousemove",fillId,setHover);
+    map.on("mouseenter",fillId,setHover);
+    map.on("mouseleave",fillId,clearHover);
     map.__lcZoneHoverInstalled = true;
     console.log("Zone hover : effet de survol activé");
     return true;
@@ -157,28 +155,27 @@
   apply();
   loadTemplateDownload();
   const observer = new MutationObserver(apply);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  setTimeout(apply, 100);
-  setTimeout(apply, 500);
-  setTimeout(apply, 1500);
+  observer.observe(document.documentElement,{childList:true,subtree:true});
+  setTimeout(apply,100);
+  setTimeout(apply,500);
+  setTimeout(apply,1500);
 
   function retryHover() {
     if (installZoneHover()) {
       if (typeof map !== "undefined" && map) {
-        try { map.off("styledata", retryHover); } catch (_) {}
-        try { map.off("idle", retryHover); } catch (_) {}
+        try { map.off("styledata",retryHover); } catch (_) {}
+        try { map.off("idle",retryHover); } catch (_) {}
       }
       return true;
     }
     return false;
   }
-
   if (!retryHover() && typeof map !== "undefined" && map) {
-    map.on("styledata", retryHover);
-    map.on("idle", retryHover);
+    map.on("styledata",retryHover);
+    map.on("idle",retryHover);
   }
-  setTimeout(retryHover, 100);
-  setTimeout(retryHover, 500);
-  setTimeout(retryHover, 1500);
-  setTimeout(retryHover, 3000);
+  setTimeout(retryHover,100);
+  setTimeout(retryHover,500);
+  setTimeout(retryHover,1500);
+  setTimeout(retryHover,3000);
 })();
