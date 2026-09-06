@@ -15,7 +15,7 @@
     </span>`;
 
   const style = document.createElement("style");
-  style.id = "lc-visual-identity-v3";
+  style.id = "lc-visual-identity-v4";
   style.textContent = `
     .lc-brand-mark-v2{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:6px;overflow:hidden;background:#080808;border:1px solid rgba(255,255,255,.12)}
     .lc-brand-mark-v2 svg{width:100%;height:100%;display:block}
@@ -73,6 +73,25 @@
       const text = tab.textContent.trim().replace(/^\s*[◇◈▢□]+\s*/, "");
       tab.innerHTML = `${ZONES_MARK}<span>${text || "ZONES"}</span>`;
     }
+  }
+
+  function applyFinalLayout() {
+    const panel = document.getElementById("panel");
+    const tab = document.getElementById("zones-tab");
+    const zonesPanel = document.getElementById("zones-panel");
+    if (!panel || !tab || !zonesPanel) return;
+
+    panel.style.setProperty("display", "block", "important");
+    panel.style.setProperty("top", "10px", "important");
+    panel.style.setProperty("left", "10px", "important");
+
+    tab.style.setProperty("top", "112px", "important");
+    tab.style.setProperty("left", "10px", "important");
+    tab.style.setProperty("width", "150px", "important");
+
+    zonesPanel.style.setProperty("top", "148px", "important");
+    zonesPanel.style.setProperty("left", "10px", "important");
+    zonesPanel.style.setProperty("width", "270px", "important");
   }
 
   function installZoneHover() {
@@ -134,9 +153,12 @@
 
   apply();
   loadTemplateDownload();
-  setTimeout(apply,100);
-  setTimeout(apply,500);
-  setTimeout(apply,1500);
+  applyFinalLayout();
+  setTimeout(() => { apply(); applyFinalLayout(); },100);
+  setTimeout(() => { apply(); applyFinalLayout(); },500);
+  setTimeout(() => { apply(); applyFinalLayout(); },1500);
+  setTimeout(() => { apply(); applyFinalLayout(); },3000);
+  setTimeout(() => { apply(); applyFinalLayout(); },6000);
 
   function retryHover() {
     if (installZoneHover()) {
