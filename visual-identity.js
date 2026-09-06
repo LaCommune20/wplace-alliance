@@ -58,6 +58,15 @@
     }
   }
 
+  function keepZonesOpenOnMapClicks() {
+    const mapElement = document.getElementById("map");
+    if (!mapElement || mapElement.dataset.lcStopZoneClose) return;
+    mapElement.dataset.lcStopZoneClose = "1";
+    mapElement.addEventListener("click", event => {
+      event.stopPropagation();
+    });
+  }
+
   function installZoneHover() {
     if (typeof map === "undefined" || !map || map.__lcZoneHoverInstalled) return false;
     const fillId = "alliance-zones-fill";
@@ -82,6 +91,7 @@
   }
 
   applyBranding();
+  keepZonesOpenOnMapClicks();
   loadTemplateDownload();
   installZoneHover();
   if (typeof map !== "undefined" && map) {
