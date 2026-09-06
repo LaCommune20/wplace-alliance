@@ -25,7 +25,6 @@
     #subtitle{margin-top:2px!important;font-size:9px!important}
     #info{margin-top:5px!important;padding-top:5px!important;font-size:8px!important;line-height:1.3!important;max-height:48px;overflow:hidden;opacity:.52}
 
-    /* Le contrôle ZONES reste immédiatement sous l'entête, sans grand vide. */
     #zones-tab{top:106px!important;width:150px!important;padding:7px 10px!important;border-radius:10px!important;cursor:pointer!important}
     #zones-tab .lc-icon{display:none!important}
     .lc-zones-mark{width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;color:#e10600}
@@ -33,11 +32,10 @@
     #zones-tab{gap:6px!important}
     #zones-panel{top:142px!important;width:270px!important}
 
-    /* Administration : visible uniquement après vérification de l'accès admin/modérateur. */
     #lc-admin-link{display:none;position:absolute;top:7px;right:8px;z-index:2;align-items:center;justify-content:center;padding:5px 8px;border:1px solid rgba(225,6,0,.32);border-radius:7px;background:rgba(225,6,0,.08);color:#bbb;text-decoration:none;font-size:8px;font-weight:bold;letter-spacing:.3px}
     #lc-admin-link:hover{background:rgba(225,6,0,.16);border-color:rgba(225,6,0,.6);color:#fff}
 
-    .lc-brand-credit{display:block;margin-top:1px;color:#777;font-size:7px;font-weight:normal;letter-spacing:.15px;line-height:1.1}
+    .lc-brand-credit{display:block;margin-top:1px;margin-left:29px;color:#777;font-size:7px;font-weight:normal;letter-spacing:.15px;line-height:1.1}
     @media(max-width:700px){#zones-tab{top:100px!important;width:150px!important}#zones-panel{top:136px!important}#lc-admin-link{top:6px;right:7px;padding:5px 7px}}
   `;
   document.head.appendChild(style);
@@ -63,6 +61,13 @@
       if (old) old.remove();
       if (!title.querySelector(".lc-brand-mark-v2")) title.insertAdjacentHTML("afterbegin", BRAND_MARK);
 
+      // Remplace uniquement le texte existant du titre, sans toucher au reste du HUD.
+      for (const node of title.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim()) {
+          node.nodeValue = "WPlace La Commune";
+          break;
+        }
+      }
       let credit = title.querySelector(".lc-brand-credit");
       if (!credit) {
         credit = document.createElement("span");
