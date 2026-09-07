@@ -12,7 +12,7 @@ const unchanged = tile(2, 2, [
 
 const changed = tile(2, 2, [
   255, 0, 0, 255, 0, 255, 0, 255,
-  255, 255, 0, 255, 255, 255, 255, 255
+  255, 255, 0, 255, 255, 0, 255, 255
 ]);
 
 const noChange = analyzeTileChange(unchanged, unchanged);
