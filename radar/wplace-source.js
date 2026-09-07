@@ -63,6 +63,7 @@ export class WPlaceTileSource {
       width: decoded.width,
       height: decoded.height,
       rgba: decoded.rgba,
+      bytes,
       url,
       contentType,
       contentLength: response.headers.get("content-length"),
