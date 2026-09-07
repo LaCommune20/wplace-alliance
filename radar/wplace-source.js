@@ -28,13 +28,15 @@ export class WPlaceTileSource {
   }
 
   async fetchTile(tileX, tileY, options = {}) {
+    const fresh = options.fresh !== false;
     const url = this.tileUrl(tileX, tileY, options);
     const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "image/png,image/*;q=0.8"
       },
-      cf: options.fresh === false ? undefined : { cacheTtl: 0 }
+      cache: fresh ? "no-store" : "default",
+      cf: fresh ? { cacheTtl: 0 } : undefined
     });
 
     if (!response.ok) {
