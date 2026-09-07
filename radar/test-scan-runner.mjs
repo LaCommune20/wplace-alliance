@@ -48,15 +48,16 @@ assert.equal(second.changedTiles, 1);
 assert.equal(second.results[0].summary.changedPixels, 4);
 assert.deepEqual(calls, ["0/0", "0/0"]);
 
-const failureState = { failTileY: null };
+let failureChanged = false;
+let failTileY = null;
 const failureSource = {
   tileSize: 2,
   worldSize: 4,
   async fetchTile(tileX, tileY) {
-    if (tileY === failureState.failTileY) {
+    if (tileY === failTileY) {
       throw new Error(`simulated failure ${tileX}/${tileY}`);
     }
-    return tile(1, tileX, tileY);
+    return tile(failureChanged ? 2 : 1, tileX, tileY);
   }
 };
 
@@ -77,7 +78,8 @@ const baseline = await failureRunner.scanTiles(tiles);
 assert.equal(baseline.status, "committed");
 assert.equal(baseline.baselineTiles, 2);
 
-failureState.failTileY = 0;
+failureChanged = true;
+failTileY = 0;
 const incomplete = await failureRunner.scanTiles(tiles);
 assert.equal(incomplete.status, "failed");
 assert.equal(incomplete.errorTiles, 1);
@@ -85,7 +87,7 @@ assert.equal(incomplete.errorTiles, 1);
 const currentAfterFailure = await failureStore.getCurrent("incomplete-radar");
 assert.equal(currentAfterFailure.tileCount, 2);
 
-failureState.failTileY = null;
+failTileY = null;
 const afterFailure = await failureRunner.scanTiles(tiles);
 assert.equal(afterFailure.status, "committed");
 assert.equal(afterFailure.changedTiles, 2);
