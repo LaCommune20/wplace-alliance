@@ -9,6 +9,7 @@ on:
     branches:
       - feat/radar-lab
       - feat/radar-live-source-final5
+      - feat/radar-baseline-store
     paths:
       - "radar/**"
       - ".github/workflows/radar-lab.yml"
@@ -35,5 +36,6 @@ jobs:
           node test-scan-core.mjs
           node test-tile-geometry.mjs
           node test-scan-planner.mjs
+          node test-baseline-store.mjs
           node test-scan-runner.mjs
           node test-wplace-source.mjs
