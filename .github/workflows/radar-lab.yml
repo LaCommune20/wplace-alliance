@@ -1,0 +1,34 @@
+name: Radar Lab
+
+on:
+  pull_request:
+    paths:
+      - "radar/**"
+      - ".github/workflows/radar-lab.yml"
+  push:
+    branches:
+      - feat/radar-lab
+    paths:
+      - "radar/**"
+      - ".github/workflows/radar-lab.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: radar
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run Radar Lab tests
+        run: |
+          node test-png-decoder.mjs
+          node test-scan-core.mjs
