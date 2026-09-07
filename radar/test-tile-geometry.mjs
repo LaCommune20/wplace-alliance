@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import {
   enumerateTilesForBounds,
+  lngLatToWorldPixel,
   regionToWorldBounds,
-  tilePixelToWorld
+  tilePixelToWorld,
+  worldPixelToLngLat
 } from "./tile-geometry.js";
 
 assert.deepEqual(tilePixelToWorld(3, 4, 7, 9, 10), { x: 37, y: 49 });
@@ -21,5 +23,14 @@ assert.deepEqual(
     { tileX: 2, tileY: 2 }
   ]
 );
+
+const world = lngLatToWorldPixel(5.37224, 43.369566);
+const geo = worldPixelToLngLat(world.x, world.y);
+assert.ok(Math.abs(geo.lng - 5.37224) < 1e-9);
+assert.ok(Math.abs(geo.lat - 43.369566) < 1e-9);
+
+const origin = lngLatToWorldPixel(-180, 0);
+assert.equal(origin.x, 0);
+assert.ok(Math.abs(origin.y - 1024000) < 1e-9);
 
 console.log("Radar tile-geometry tests: OK");
