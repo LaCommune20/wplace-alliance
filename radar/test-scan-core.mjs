@@ -1,23 +1,32 @@
 import assert from "node:assert/strict";
+import { compareTiles } from "./tile-diff.js";
 import { analyzeTileChange } from "./scan-core.js";
 
 function tile(width, height, rgba) {
   return { width, height, rgba: Uint8Array.from(rgba) };
 }
 
-const unchanged = tile(2, 2, [
-  255, 0, 0, 255, 0, 255, 0, 255,
-  0, 0, 255, 255, 255, 255, 255, 255
+const unchanged = tile(4, 1, [
+  0, 0, 0, 255,
+  0, 0, 0, 255,
+  0, 0, 0, 255,
+  0, 0, 0, 255
 ]);
 
-const changed = tile(2, 2, [
-  255, 0, 0, 255, 0, 255, 0, 255,
-  255, 255, 0, 255, 255, 0, 255, 255
+const changed = tile(4, 1, [
+  255, 0, 0, 255,
+  0, 0, 0, 255,
+  0, 255, 0, 255,
+  0, 0, 255, 255
 ]);
 
 const noChange = analyzeTileChange(unchanged, unchanged);
 assert.equal(noChange.changed, false);
 assert.equal(noChange.summary.changedPixels, 0);
+
+const rawDiff = compareTiles(unchanged, changed);
+assert.equal(rawDiff.changedPixels, 3);
+assert.deepEqual(Array.from(rawDiff.changed), [1, 0, 1, 1]);
 
 const result = analyzeTileChange(unchanged, changed, {
   minRegionPixels: 1,
@@ -26,22 +35,12 @@ const result = analyzeTileChange(unchanged, changed, {
 });
 
 assert.equal(result.changed, true);
-assert.equal(result.summary.changedPixels, 2);
+assert.equal(result.summary.changedPixels, 3);
 assert.equal(result.summary.regionCount, 2);
 assert.equal(result.severity, "alert");
-assert.deepEqual(result.regions[0], {
-  pixelCount: 1,
-  minX: 0,
-  minY: 1,
-  maxX: 0,
-  maxY: 1
-});
-assert.deepEqual(result.regions[1], {
-  pixelCount: 1,
-  minX: 1,
-  minY: 1,
-  maxX: 1,
-  maxY: 1
-});
+assert.deepEqual(result.regions, [
+  { pixelCount: 2, minX: 2, minY: 0, maxX: 3, maxY: 0 },
+  { pixelCount: 1, minX: 0, minY: 0, maxX: 0, maxY: 0 }
+]);
 
 console.log("Radar scan-core tests: OK");
