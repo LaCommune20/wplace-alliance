@@ -1,6 +1,6 @@
-// Coordinate helpers kept independent from WPlace's live API details.
-// The tile size is always supplied explicitly so we do not hardcode an
-// unverified WPlace tile dimension into the Radar.
+// Coordinate helpers for the Radar.
+// WPlace's current world is 2048 tiles x 1000 pixels at native zoom 11,
+// but tile/world dimensions remain explicit so the code is easy to validate.
 
 export function validateTileSize(tileWidth, tileHeight = tileWidth) {
   const width = Number(tileWidth);
@@ -60,4 +60,29 @@ export function enumerateTilesForBounds(bounds, tileWidth, tileHeight = tileWidt
   }
 
   return tiles;
+}
+
+export function lngLatToWorldPixel(lng, lat, worldSize = 2048000) {
+  if (![lng, lat, worldSize].every(Number.isFinite) || worldSize <= 0) {
+    throw new Error("Coordonnée géographique invalide");
+  }
+  if (lng < -180 || lng > 180) throw new Error("Longitude hors limites");
+
+  const clampedLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
+  const sin = Math.sin((clampedLat * Math.PI) / 180);
+  return {
+    x: ((lng + 180) / 360) * worldSize,
+    y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * worldSize
+  };
+}
+
+export function worldPixelToLngLat(x, y, worldSize = 2048000) {
+  if (![x, y, worldSize].every(Number.isFinite) || worldSize <= 0) {
+    throw new Error("Coordonnée monde invalide");
+  }
+
+  const lng = (x / worldSize) * 360 - 180;
+  const y2 = 0.5 - y / worldSize;
+  const lat = (360 / Math.PI) * Math.atan(Math.exp(y2 * 2 * Math.PI)) - 90;
+  return { lng, lat };
 }
