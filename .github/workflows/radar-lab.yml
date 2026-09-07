@@ -34,4 +34,5 @@ jobs:
           node test-png-decoder.mjs
           node test-scan-core.mjs
           node test-tile-geometry.mjs
+          node test-scan-planner.mjs
           node test-wplace-source.mjs
