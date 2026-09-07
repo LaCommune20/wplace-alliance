@@ -35,8 +35,7 @@ export class WPlaceTileSource {
       headers: {
         Accept: "image/png,image/*;q=0.8"
       },
-      cache: fresh ? "no-store" : "default",
-      cf: fresh ? { cacheTtl: 0 } : undefined
+      cache: fresh ? "no-store" : "default"
     });
 
     if (!response.ok) {
