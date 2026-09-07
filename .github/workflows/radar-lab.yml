@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - feat/radar-lab
+      - feat/radar-live-source-final5
     paths:
       - "radar/**"
       - ".github/workflows/radar-lab.yml"
@@ -33,3 +34,4 @@ jobs:
           node test-png-decoder.mjs
           node test-scan-core.mjs
           node test-tile-geometry.mjs
+          node test-wplace-source.mjs
