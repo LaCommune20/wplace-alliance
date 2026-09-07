@@ -67,6 +67,14 @@
     });
   }
 
+  function getZones() {
+    try {
+      return Array.isArray(ALLIANCE_ZONES) ? ALLIANCE_ZONES : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   function normalizeZoneCenter(zone) {
     if (!zone) return null;
     let center = zone.center;
@@ -92,8 +100,7 @@
   }
 
   function findZoneById(id) {
-    if (!Array.isArray(window.ALLIANCE_ZONES)) return null;
-    return window.ALLIANCE_ZONES.find(zone => String(zone.id) === String(id)) || null;
+    return getZones().find(zone => String(zone.id) === String(id)) || null;
   }
 
   function centerZone(zone) {
@@ -122,9 +129,7 @@
       if (!button) return;
       const card = button.closest(".zone-card");
       const name = card?.querySelector(".zone-name")?.textContent?.trim();
-      const zone = Array.isArray(window.ALLIANCE_ZONES)
-        ? window.ALLIANCE_ZONES.find(item => item.name === name)
-        : null;
+      const zone = getZones().find(item => item.name === name);
       if (!zone) return;
       event.preventDefault();
       event.stopPropagation();
