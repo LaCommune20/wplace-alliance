@@ -36,12 +36,11 @@ const result = analyzeTileChange(unchanged, changed, {
 
 assert.equal(result.changed, true);
 assert.equal(result.summary.changedPixels, 3);
-assert.equal(result.summary.regionCount, 3);
+assert.equal(result.summary.regionCount, 2);
 assert.equal(result.severity, "alert");
 assert.deepEqual(result.regions, [
-  { pixelCount: 1, minX: 0, minY: 0, maxX: 0, maxY: 0 },
-  { pixelCount: 1, minX: 2, minY: 0, maxX: 2, maxY: 0 },
-  { pixelCount: 1, minX: 3, minY: 0, maxX: 3, maxY: 0 }
+  { pixelCount: 2, minX: 2, minY: 0, maxX: 3, maxY: 0 },
+  { pixelCount: 1, minX: 0, minY: 0, maxX: 0, maxY: 0 }
 ]);
 
 console.log("Radar scan-core tests: OK");
