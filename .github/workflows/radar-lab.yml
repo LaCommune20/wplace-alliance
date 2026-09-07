@@ -35,4 +35,5 @@ jobs:
           node test-scan-core.mjs
           node test-tile-geometry.mjs
           node test-scan-planner.mjs
+          node test-scan-runner.mjs
           node test-wplace-source.mjs
