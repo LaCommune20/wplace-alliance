@@ -87,7 +87,7 @@
       if (Number.isFinite(first) && Number.isFinite(second)) return [first, second];
     }
     if (center && typeof center === "object") {
-      const lng = Number(center.longitude ?? center.lng);
+      const lng = Number(center.longitude ?? center.lng ?? center.lon);
       const lat = Number(center.latitude ?? center.lat);
       if (Number.isFinite(lng) && Number.isFinite(lat)) return [lng, lat];
     }
@@ -97,6 +97,14 @@
   function zoneFocusZoom(zone) {
     const zoom = Number(zone?.focus_zoom ?? zone?.zoom);
     return Number.isFinite(zoom) ? zoom : 12;
+  }
+
+  function normalizeZoneData() {
+    getZones().forEach(zone => {
+      const center = normalizeZoneCenter(zone);
+      if (center) zone.center = center;
+      zone.zoom = zoneFocusZoom(zone);
+    });
   }
 
   function findZoneById(id) {
@@ -110,12 +118,7 @@
       console.warn("Centrage impossible : centre de zone absent ou invalide", zone);
       return false;
     }
-    map.flyTo({
-      center,
-      zoom: zoneFocusZoom(zone),
-      duration: 700,
-      essential: true
-    });
+    map.flyTo({center,zoom:zoneFocusZoom(zone),duration:700,essential:true});
     return true;
   }
 
@@ -123,7 +126,6 @@
     const list = document.getElementById("zones-list");
     if (!list || list.dataset.lcCenterFix) return false;
     list.dataset.lcCenterFix = "1";
-
     list.addEventListener("click", event => {
       const button = event.target.closest?.(".zone-focus");
       if (!button) return;
@@ -135,7 +137,6 @@
       event.stopPropagation();
       centerZone(zone);
     }, true);
-
     return true;
   }
 
@@ -144,7 +145,6 @@
     const button = document.getElementById("zone-details-center");
     if (!panel || !button || panel.dataset.lcCenterFix) return false;
     panel.dataset.lcCenterFix = "1";
-
     panel.addEventListener("click", event => {
       if (!event.target.closest?.("#zone-details-center")) return;
       const zone = findZoneById(panel.dataset.zoneId);
@@ -153,19 +153,13 @@
       event.stopPropagation();
       centerZone(zone);
     }, true);
-
     return true;
   }
 
   function makeWPlaceUrl(zone) {
     const center = normalizeZoneCenter(zone);
     if (!center) return null;
-    const zoom = zoneFocusZoom(zone);
-    const params = new URLSearchParams({
-      lat: String(center[1]),
-      lng: String(center[0]),
-      zoom: String(zoom)
-    });
+    const params = new URLSearchParams({lat:String(center[1]),lng:String(center[0]),zoom:String(zoneFocusZoom(zone))});
     return `https://wplace.live/?${params.toString()}`;
   }
 
@@ -176,7 +170,6 @@
     const zone = findZoneById(panel.dataset.zoneId);
     const fallbackUrl = makeWPlaceUrl(zone);
     if (!fallbackUrl) return false;
-
     list.querySelectorAll(".zone-template-card").forEach(card => {
       const actions = card.querySelector(".zone-template-actions");
       if (!actions || actions.querySelector("a[href*='wplace.live']")) return;
@@ -194,7 +187,6 @@
     const panel = document.getElementById("zone-details");
     if (!panel || panel.dataset.lcWPlaceFix) return false;
     panel.dataset.lcWPlaceFix = "1";
-
     const originalShow = window.showZoneDetails;
     if (typeof originalShow === "function" && !originalShow.__lcWrapped) {
       const wrapped = function(zone) {
@@ -207,7 +199,6 @@
       wrapped.__lcWrapped = true;
       window.showZoneDetails = wrapped;
     }
-
     addMissingWPlaceLinks();
     return true;
   }
@@ -235,6 +226,7 @@
     const s=document.createElement("script"); s.src="template-download.js"; s.dataset.lcTemplateDownload="1"; document.body.appendChild(s);
   }
 
+  normalizeZoneData();
   applyBranding();
   keepZonesOpenOnMapClicks();
   loadTemplateDownload();
@@ -244,6 +236,7 @@
   installZoneHover();
   if (typeof map !== "undefined" && map) {
     map.on("idle", () => {
+      normalizeZoneData();
       installZoneCenterFix();
       installDetailCenterFix();
       installWPlaceFallback();
