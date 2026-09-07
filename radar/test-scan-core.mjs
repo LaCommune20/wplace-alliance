@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { compareTiles } from "./tile-diff.js";
 import { analyzeTileChange } from "./scan-core.js";
 
 function tile(width, height, rgba) {
@@ -22,6 +23,10 @@ const changed = tile(4, 1, [
 const noChange = analyzeTileChange(unchanged, unchanged);
 assert.equal(noChange.changed, false);
 assert.equal(noChange.summary.changedPixels, 0);
+
+const rawDiff = compareTiles(unchanged, changed);
+assert.equal(rawDiff.changedPixels, 3);
+assert.deepEqual(Array.from(rawDiff.changed), [1, 0, 1, 1]);
 
 const result = analyzeTileChange(unchanged, changed, {
   minRegionPixels: 1,
