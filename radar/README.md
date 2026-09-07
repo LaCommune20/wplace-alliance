@@ -57,7 +57,7 @@ Le endpoint utilisé par la carte et celui utilisé par le Radar doivent rester 
 
 L'adaptateur utilise par défaut `/radar-tile/X/Y.png`. Ce chemin n'est pas encore activé sur le proxy de production : c'est volontaire.
 
-Le proxy Radar devra désactiver le cache long pour ses sous-requêtes. Cloudflare permet de contrôler le TTL directement sur le `fetch()` d'une sous-requête, et `cacheTtl: 0` expire immédiatement l'objet mis en cache. citehttps://developers.cloudflare.com/workers/runtime-apis/request/
+Le proxy Radar devra désactiver le cache long pour ses sous-requêtes. Cloudflare permet de contrôler le TTL directement sur le `fetch()` d'une sous-requête, avec `cacheTtl: 0` pour une expiration immédiate.
 
 ## Prochaine étape
 
