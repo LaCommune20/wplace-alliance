@@ -47,7 +47,8 @@ export class WPlaceTileSource {
     }
 
     const bytes = new Uint8Array(await response.arrayBuffer());
-    const decoded = await decodePng(bytes);
+    const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const decoded = await decodePng(buffer);
 
     if (decoded.width !== this.tileSize || decoded.height !== this.tileSize) {
       throw new Error(
