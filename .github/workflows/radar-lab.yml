@@ -32,4 +32,4 @@ jobs:
         run: |
           node test-png-decoder.mjs
           node test-scan-core.mjs
-          node test-tile-planner.mjs
+          node test-tile-geometry.mjs
