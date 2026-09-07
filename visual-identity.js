@@ -67,6 +67,146 @@
     });
   }
 
+  function normalizeZoneCenter(zone) {
+    if (!zone) return null;
+    let center = zone.center;
+    if (typeof center === "string") {
+      try { center = JSON.parse(center); } catch (_) { return null; }
+    }
+    if (Array.isArray(center) && center.length >= 2) {
+      const first = Number(center[0]);
+      const second = Number(center[1]);
+      if (Number.isFinite(first) && Number.isFinite(second)) return [first, second];
+    }
+    if (center && typeof center === "object") {
+      const lng = Number(center.longitude ?? center.lng);
+      const lat = Number(center.latitude ?? center.lat);
+      if (Number.isFinite(lng) && Number.isFinite(lat)) return [lng, lat];
+    }
+    return null;
+  }
+
+  function zoneFocusZoom(zone) {
+    const zoom = Number(zone?.focus_zoom ?? zone?.zoom);
+    return Number.isFinite(zoom) ? zoom : 12;
+  }
+
+  function findZoneById(id) {
+    if (!Array.isArray(window.ALLIANCE_ZONES)) return null;
+    return window.ALLIANCE_ZONES.find(zone => String(zone.id) === String(id)) || null;
+  }
+
+  function centerZone(zone) {
+    if (!zone || typeof map === "undefined" || !map) return false;
+    const center = normalizeZoneCenter(zone);
+    if (!center) {
+      console.warn("Centrage impossible : centre de zone absent ou invalide", zone);
+      return false;
+    }
+    map.flyTo({
+      center,
+      zoom: zoneFocusZoom(zone),
+      duration: 700,
+      essential: true
+    });
+    return true;
+  }
+
+  function installZoneCenterFix() {
+    const list = document.getElementById("zones-list");
+    if (!list || list.dataset.lcCenterFix) return false;
+    list.dataset.lcCenterFix = "1";
+
+    list.addEventListener("click", event => {
+      const button = event.target.closest?.(".zone-focus");
+      if (!button) return;
+      const card = button.closest(".zone-card");
+      const name = card?.querySelector(".zone-name")?.textContent?.trim();
+      const zone = Array.isArray(window.ALLIANCE_ZONES)
+        ? window.ALLIANCE_ZONES.find(item => item.name === name)
+        : null;
+      if (!zone) return;
+      event.preventDefault();
+      event.stopPropagation();
+      centerZone(zone);
+    }, true);
+
+    return true;
+  }
+
+  function installDetailCenterFix() {
+    const panel = document.getElementById("zone-details");
+    const button = document.getElementById("zone-details-center");
+    if (!panel || !button || panel.dataset.lcCenterFix) return false;
+    panel.dataset.lcCenterFix = "1";
+
+    panel.addEventListener("click", event => {
+      if (!event.target.closest?.("#zone-details-center")) return;
+      const zone = findZoneById(panel.dataset.zoneId);
+      if (!zone) return;
+      event.preventDefault();
+      event.stopPropagation();
+      centerZone(zone);
+    }, true);
+
+    return true;
+  }
+
+  function makeWPlaceUrl(zone) {
+    const center = normalizeZoneCenter(zone);
+    if (!center) return null;
+    const zoom = zoneFocusZoom(zone);
+    const params = new URLSearchParams({
+      lat: String(center[1]),
+      lng: String(center[0]),
+      zoom: String(zoom)
+    });
+    return `https://wplace.live/?${params.toString()}`;
+  }
+
+  function addMissingWPlaceLinks() {
+    const panel = document.getElementById("zone-details");
+    const list = document.getElementById("zone-details-templates-list");
+    if (!panel || !panel.classList.contains("open") || !list) return false;
+    const zone = findZoneById(panel.dataset.zoneId);
+    const fallbackUrl = makeWPlaceUrl(zone);
+    if (!fallbackUrl) return false;
+
+    list.querySelectorAll(".zone-template-card").forEach(card => {
+      const actions = card.querySelector(".zone-template-actions");
+      if (!actions || actions.querySelector("a[href*='wplace.live']")) return;
+      const link = document.createElement("a");
+      link.href = fallbackUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.innerHTML = `${ZONES_MARK}<span>Ouvrir WPlace</span>`;
+      actions.appendChild(link);
+    });
+    return true;
+  }
+
+  function installWPlaceFallback() {
+    const panel = document.getElementById("zone-details");
+    if (!panel || panel.dataset.lcWPlaceFix) return false;
+    panel.dataset.lcWPlaceFix = "1";
+
+    const originalShow = window.showZoneDetails;
+    if (typeof originalShow === "function" && !originalShow.__lcWrapped) {
+      const wrapped = function(zone) {
+        const result = originalShow.apply(this, arguments);
+        setTimeout(addMissingWPlaceLinks, 0);
+        setTimeout(addMissingWPlaceLinks, 80);
+        setTimeout(addMissingWPlaceLinks, 250);
+        return result;
+      };
+      wrapped.__lcWrapped = true;
+      window.showZoneDetails = wrapped;
+    }
+
+    addMissingWPlaceLinks();
+    return true;
+  }
+
   function installZoneHover() {
     if (typeof map === "undefined" || !map || map.__lcZoneHoverInstalled) return false;
     const fillId = "alliance-zones-fill";
@@ -93,9 +233,17 @@
   applyBranding();
   keepZonesOpenOnMapClicks();
   loadTemplateDownload();
+  installZoneCenterFix();
+  installDetailCenterFix();
+  installWPlaceFallback();
   installZoneHover();
   if (typeof map !== "undefined" && map) {
-    map.on("idle", installZoneHover);
+    map.on("idle", () => {
+      installZoneCenterFix();
+      installDetailCenterFix();
+      installWPlaceFallback();
+      installZoneHover();
+    });
     map.on("styledata", installZoneHover);
   }
 })();
