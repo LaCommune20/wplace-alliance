@@ -36,5 +36,12 @@ assert.deepEqual(result.regions[0], {
   maxX: 0,
   maxY: 1
 });
+assert.deepEqual(result.regions[1], {
+  pixelCount: 1,
+  minX: 1,
+  minY: 1,
+  maxX: 1,
+  maxY: 1
+});
 
 console.log("Radar scan-core tests: OK");
