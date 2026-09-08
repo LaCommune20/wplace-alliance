@@ -1,3 +1,5 @@
+import { groupRegionsByProximity } from "./event-region-groups.js";
+
 // Pure Radar event lifecycle resolver.
 // This module does not access D1 and does not classify the nature of a change.
 
@@ -79,6 +81,24 @@ function isoTime(value) {
   return new Date(value).toISOString();
 }
 
+function observationForRegionGroup(observation, regions) {
+  const regionPixels = regions.reduce((sum, region) => sum + finiteNumber(region.pixel_count ?? region.pixelCount), 0);
+  const totalMeaningful = finiteNumber(observation.summary?.changedMeaningfulPixels ?? observation.summary?.changedPixels);
+  const changedMeaningfulPixels = regionPixels > 0 ? regionPixels : totalMeaningful;
+  const changedPixels = regionPixels > 0 ? regionPixels : totalMeaningful;
+
+  return {
+    ...observation,
+    regions,
+    summary: {
+      ...(observation.summary ?? {}),
+      changedPixels,
+      changedMeaningfulPixels,
+      regionCount: regions.length
+    }
+  };
+}
+
 export function resolveRadarObservation({
   radarId,
   zoneId = null,
@@ -130,6 +150,44 @@ export function resolveRadarObservation({
     regions: incomingRegions,
     matchedEventId: matchingEvent.id ?? null
   };
+}
+
+export function resolveRadarObservationGroups({
+  radarId,
+  zoneId = null,
+  observation,
+  events = [],
+  now = Date.now(),
+  options = {}
+}) {
+  if (!observation || !observation.changed) return [];
+
+  const proximityPixels = options.proximityPixels ?? DEFAULT_PROXIMITY_PIXELS;
+  const groups = groupRegionsByProximity(observation.regions ?? [], proximityPixels);
+  let workingEvents = [...events];
+
+  return groups.map(regions => {
+    const decision = resolveRadarObservation({
+      radarId,
+      zoneId,
+      observation: observationForRegionGroup(observation, regions),
+      events: workingEvents,
+      now,
+      options
+    });
+
+    if (decision.event) {
+      const matchedId = decision.matchedEventId;
+      const index = matchedId == null
+        ? -1
+        : workingEvents.findIndex(event => event.id === matchedId);
+
+      if (index >= 0) workingEvents[index] = decision.event;
+      else workingEvents.push(decision.event);
+    }
+
+    return decision;
+  });
 }
 
 export function resolveEventExpirations(events = [], now = Date.now(), options = {}) {
