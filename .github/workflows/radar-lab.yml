@@ -39,3 +39,4 @@ jobs:
           node test-baseline-store.mjs
           node test-scan-runner.mjs
           node test-wplace-source.mjs
+          node event-resolver.test.mjs
