@@ -1,9 +1,11 @@
 -- WPlace La Commune — D1 migration 0003
 -- Radar events + regions.
 -- Cette migration ne crée aucune alerte et n'active aucune surveillance.
+--
+-- IMPORTANT : pas de BEGIN/COMMIT ici. Wrangler D1 exécute le fichier via
+-- son mécanisme de transaction et refuse les transactions SQL explicites.
 
 PRAGMA foreign_keys = ON;
-BEGIN TRANSACTION;
 
 CREATE TABLE IF NOT EXISTS radar_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,6 +23,7 @@ CREATE TABLE IF NOT EXISTS radar_events (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CHECK ((status='closed' AND closed_at IS NOT NULL) OR (status <> 'closed'))
 );
+
 CREATE INDEX IF NOT EXISTS idx_radar_events_radar_status
   ON radar_events(radar_id, status);
 CREATE INDEX IF NOT EXISTS idx_radar_events_last_activity
@@ -44,9 +47,8 @@ CREATE TABLE IF NOT EXISTS radar_event_regions (
   CHECK (min_x >= 0 AND min_y >= 0),
   CHECK (max_x >= min_x AND max_y >= min_y)
 );
+
 CREATE INDEX IF NOT EXISTS idx_radar_event_regions_event
   ON radar_event_regions(event_id);
 CREATE INDEX IF NOT EXISTS idx_radar_event_regions_tile
   ON radar_event_regions(tile_x, tile_y);
-
-COMMIT;
