@@ -128,7 +128,8 @@ export function resolveRadarObservation({
         pixel_count: finiteNumber(observation.summary?.changedMeaningfulPixels ?? observation.summary?.changedPixels),
         region_count: incomingRegions.length,
         score: finiteNumber(observation.score, 0),
-        score_breakdown: observation.summary ?? null
+        score_breakdown: observation.summary ?? null,
+        regions: incomingRegions
       },
       regions: incomingRegions
     };
@@ -145,7 +146,8 @@ export function resolveRadarObservation({
       pixel_count: finiteNumber(matchingEvent.pixel_count) + finiteNumber(observation.summary?.changedMeaningfulPixels ?? observation.summary?.changedPixels),
       region_count: finiteNumber(matchingEvent.region_count) + incomingRegions.length,
       score: finiteNumber(observation.score, 0),
-      score_breakdown: observation.summary ?? null
+      score_breakdown: observation.summary ?? null,
+      regions: [...(matchingEvent.regions ?? []), ...incomingRegions]
     },
     regions: incomingRegions,
     matchedEventId: matchingEvent.id ?? null
