@@ -3,13 +3,14 @@ import {
   eventMatchesRegions,
   regionsAreClose,
   resolveEventExpirations,
-  resolveRadarObservation
+  resolveRadarObservation,
+  resolveRadarObservationGroups
 } from "./event-resolver.js";
 
 const now = "2026-09-08T18:00:00.000Z";
-const firstRegion = { tile_x: 100, tile_y: 200, min_x: 10, min_y: 20, max_x: 20, max_y: 30 };
-const nearbyRegion = { tile_x: 100, tile_y: 200, min_x: 45, min_y: 20, max_x: 50, max_y: 30 };
-const farRegion = { tile_x: 101, tile_y: 200, min_x: 0, min_y: 20, max_x: 5, max_y: 30 };
+const firstRegion = { tile_x: 100, tile_y: 200, min_x: 10, min_y: 20, max_x: 20, max_y: 30, pixel_count: 10 };
+const nearbyRegion = { tile_x: 100, tile_y: 200, min_x: 45, min_y: 20, max_x: 50, max_y: 30, pixel_count: 15 };
+const farRegion = { tile_x: 101, tile_y: 200, min_x: 0, min_y: 20, max_x: 5, max_y: 30, pixel_count: 20 };
 
 assert.equal(regionsAreClose(firstRegion, nearbyRegion, 32), true);
 assert.equal(regionsAreClose(firstRegion, farRegion, 32), false);
@@ -64,5 +65,58 @@ assert.equal(closed[0].event.closed_at, now);
 
 const unchanged = resolveRadarObservation({ radarId: "radar-test", observation: { changed: false }, events: [existing], now });
 assert.equal(unchanged.action, "none");
+
+const groupObservation = {
+  changed: true,
+  score: 100,
+  summary: { changedPixels: 30, changedMeaningfulPixels: 30, regionCount: 3 },
+  regions: [
+    { tile_x: 1057, tile_y: 751, min_x: 990, min_y: 500, max_x: 999, max_y: 500, pixel_count: 10 },
+    { tile_x: 1058, tile_y: 751, min_x: 0, min_y: 500, max_x: 5, max_y: 500, pixel_count: 5 },
+    { tile_x: 1058, tile_y: 751, min_x: 500, min_y: 500, max_x: 505, max_y: 505, pixel_count: 15 }
+  ]
+};
+
+const grouped = resolveRadarObservationGroups({
+  radarId: "radar-test",
+  zoneId: 7,
+  observation: groupObservation,
+  events: [],
+  now
+});
+assert.equal(grouped.length, 2);
+assert.equal(grouped[0].action, "create");
+assert.equal(grouped[0].regions.length, 2);
+assert.equal(grouped[0].event.pixel_count, 15);
+assert.equal(grouped[1].action, "create");
+assert.equal(grouped[1].regions.length, 1);
+assert.equal(grouped[1].event.pixel_count, 15);
+
+const existingGroupEvent = {
+  id: 77,
+  radar_id: "radar-test",
+  zone_id: 7,
+  started_at: "2026-09-08T17:55:00.000Z",
+  last_activity_at: "2026-09-08T17:59:00.000Z",
+  closed_at: null,
+  status: "active",
+  pixel_count: 50,
+  region_count: 2,
+  score: 50,
+  regions: [groupObservation.regions[0]]
+};
+
+const groupedUpdate = resolveRadarObservationGroups({
+  radarId: "radar-test",
+  zoneId: 7,
+  observation: groupObservation,
+  events: [existingGroupEvent],
+  now
+});
+assert.equal(groupedUpdate.length, 2);
+assert.equal(groupedUpdate[0].action, "update");
+assert.equal(groupedUpdate[0].matchedEventId, 77);
+assert.equal(groupedUpdate[0].event.pixel_count, 65);
+assert.equal(groupedUpdate[1].action, "create");
 
 console.log("Radar event-resolver tests: OK");
