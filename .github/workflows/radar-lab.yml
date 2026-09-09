@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "radar/**"
+      - "migrations/*.sql"
       - ".github/workflows/radar-lab.yml"
   push:
     branches:
@@ -12,6 +13,7 @@ on:
       - feat/radar-baseline-store
     paths:
       - "radar/**"
+      - "migrations/*.sql"
       - ".github/workflows/radar-lab.yml"
 
 jobs:
@@ -30,9 +32,6 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run Radar Scope tests
-        run: node radar-scope.test.mjs
-
       - name: Run Radar Lab tests
         run: |
           node test-png-decoder.mjs
@@ -42,5 +41,10 @@ jobs:
           node test-baseline-store.mjs
           node event-resolver.test.mjs
           node event-region-groups.test.mjs
+          node radar-scope.test.mjs
+          node radar-runtime-config.test.mjs
+          node test-radar-config.sql.mjs
           node test-scan-runner.mjs
           node test-wplace-source.mjs
+
+      # Contract-only changes are intentionally validated by the same Radar Lab job.
