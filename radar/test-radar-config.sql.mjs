@@ -26,7 +26,8 @@ test("un seul Radar zone actif ou paused par zone", () => {
 });
 
 test("un maximum de deux Radars rectangle actifs ou paused par zone", () => {
-  assert.match(sql, /CREATE TRIGGER IF NOT EXISTS radars_max_two_rectangles/);
+  assert.match(sql, /CREATE TRIGGER IF NOT EXISTS radars_max_two_rectangles_insert/);
+  assert.match(sql, /CREATE TRIGGER IF NOT EXISTS radars_max_two_rectangles_update/);
   assert.match(sql, /COUNT\(\*\) FROM radars/);
   assert.match(sql, /type = 'rectangle'/);
   assert.match(sql, /status IN \('active', 'paused'\)/);
