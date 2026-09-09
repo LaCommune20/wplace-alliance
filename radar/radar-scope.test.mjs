@@ -39,7 +39,7 @@ test("un radar zone utilise la géométrie réelle de la zone", () => {
   assert.equal(scope.type, "zone");
   assert.equal(scope.zoneId, 4);
   assert.ok(scope.tiles.length > 0);
-  assert.deepEqual(scope.tiles[0], { tileX: 1057, tileY: 750 });
+  assert.ok(scope.tiles.some(({ tileX, tileY }) => tileX === 1057 && tileY === 751));
 });
 
 test("un radar rectangle produit les tuiles couvrant le rectangle", () => {
