@@ -25,6 +25,20 @@ test("un seul Radar zone actif ou paused par zone", () => {
   assert.match(sql, /type = 'zone' AND status IN \('active', 'paused'\)/);
 });
 
+test("maximum deux Radars rectangle actifs ou paused par zone", () => {
+  assert.match(sql, /CREATE TRIGGER IF NOT EXISTS radars_limit_two_rectangles_insert/);
+  assert.match(sql, /CREATE TRIGGER IF NOT EXISTS radars_limit_two_rectangles_update/);
+  assert.match(sql, /type = 'rectangle'/);
+  assert.match(sql, /status IN \('active', 'paused'\)/);
+  assert.match(sql, /COUNT\(\*\)/);
+  assert.match(sql, />= 2/);
+  assert.match(sql, /RAISE\(ABORT, 'Maximum de deux Radars rectangle actifs\/paused par zone'\)/);
+});
+
+test("les Radars archivés ne consomment pas de slot rectangle", () => {
+  assert.match(sql, /-- Les Radars archivés ne consomment plus de slot\./);
+});
+
 test("radar est rattaché à une zone", () => {
   assert.match(sql, /zone_id INTEGER NOT NULL/);
   assert.match(sql, /REFERENCES zones\(id\) ON DELETE CASCADE/);
