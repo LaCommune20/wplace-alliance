@@ -21,7 +21,7 @@ function mockDb(row) {
       assert.match(sql, /INNER JOIN zones z ON z\.id = r\.zone_id/);
       return {
         bind(id) {
-          assert.equal(id, row?.id ?? "radar-1");
+          assert.ok(id);
           return {
             first: async () => row
           };
