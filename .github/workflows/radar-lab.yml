@@ -40,5 +40,6 @@ jobs:
           node event-resolver.test.mjs
           node event-region-groups.test.mjs
           node radar-scope.test.mjs
+          node test-radar-config.sql.mjs
           node test-scan-runner.mjs
           node test-wplace-source.mjs
