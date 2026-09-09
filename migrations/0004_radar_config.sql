@@ -53,41 +53,35 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_radars_one_zone_radar
   ON radars(zone_id)
   WHERE type = 'zone' AND status IN ('active', 'paused');
 
--- Maximum two Radars rectangle actifs/paused par zone.
--- Les Radars archivés ne consomment plus de slot.
-CREATE TRIGGER IF NOT EXISTS radars_limit_two_rectangles_insert
+CREATE TRIGGER IF NOT EXISTS radars_max_two_rectangles_insert
 BEFORE INSERT ON radars
 FOR EACH ROW
-WHEN NEW.type = 'rectangle' AND NEW.status IN ('active', 'paused')
+WHEN NEW.type = 'rectangle'
+  AND NEW.status IN ('active', 'paused')
+  AND (
+    SELECT COUNT(*) FROM radars
+    WHERE zone_id = NEW.zone_id
+      AND type = 'rectangle'
+      AND status IN ('active', 'paused')
+  ) >= 2
 BEGIN
-  SELECT CASE
-    WHEN (
-      SELECT COUNT(*)
-      FROM radars
-      WHERE zone_id = NEW.zone_id
-        AND type = 'rectangle'
-        AND status IN ('active', 'paused')
-    ) >= 2
-    THEN RAISE(ABORT, 'Maximum de deux Radars rectangle actifs/paused par zone')
-  END;
+  SELECT RAISE(ABORT, 'maximum de 2 Radars rectangle par zone');
 END;
 
-CREATE TRIGGER IF NOT EXISTS radars_limit_two_rectangles_update
+CREATE TRIGGER IF NOT EXISTS radars_max_two_rectangles_update
 BEFORE UPDATE OF zone_id, type, status ON radars
 FOR EACH ROW
-WHEN NEW.type = 'rectangle' AND NEW.status IN ('active', 'paused')
+WHEN NEW.type = 'rectangle'
+  AND NEW.status IN ('active', 'paused')
+  AND (
+    SELECT COUNT(*) FROM radars
+    WHERE zone_id = NEW.zone_id
+      AND type = 'rectangle'
+      AND status IN ('active', 'paused')
+      AND id != OLD.id
+  ) >= 2
 BEGIN
-  SELECT CASE
-    WHEN (
-      SELECT COUNT(*)
-      FROM radars
-      WHERE zone_id = NEW.zone_id
-        AND type = 'rectangle'
-        AND status IN ('active', 'paused')
-        AND id <> OLD.id
-    ) >= 2
-    THEN RAISE(ABORT, 'Maximum de deux Radars rectangle actifs/paused par zone')
-  END;
+  SELECT RAISE(ABORT, 'maximum de 2 Radars rectangle par zone');
 END;
 
 CREATE TRIGGER IF NOT EXISTS radars_set_updated_at
