@@ -46,3 +46,5 @@ jobs:
           node test-radar-config.sql.mjs
           node test-scan-runner.mjs
           node test-wplace-source.mjs
+
+      # Contract-only changes are intentionally validated by the same Radar Lab job.
