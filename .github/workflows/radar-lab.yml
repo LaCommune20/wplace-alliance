@@ -48,3 +48,4 @@ jobs:
           node test-wplace-source.mjs
 
       # Contract-only changes are intentionally validated by the same Radar Lab job.
+      # CI retrigger marker: keep Radar Lab validation attached to schema/test changes.
