@@ -39,5 +39,6 @@ jobs:
           node test-baseline-store.mjs
           node event-resolver.test.mjs
           node event-region-groups.test.mjs
+          node radar-scope.test.mjs
           node test-scan-runner.mjs
           node test-wplace-source.mjs
