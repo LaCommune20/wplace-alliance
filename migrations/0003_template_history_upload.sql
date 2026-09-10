@@ -5,7 +5,7 @@
 -- 0001_initial_schema.sql ne peut pas être réécrite : elle appartient à
 -- l'historique des migrations. SQLite/D1 nécessite donc une reconstruction contrôlée.
 
-PRAGMA foreign_keys = OFF;
+PRAGMA defer_foreign_keys = ON;
 
 CREATE TABLE template_history__new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,4 +45,4 @@ ALTER TABLE template_history__new RENAME TO template_history;
 -- idx_template_history_template après cette reconstruction. Il n'est donc
 -- volontairement pas recréé ici.
 
-PRAGMA foreign_keys = ON;
+PRAGMA defer_foreign_keys = OFF;
