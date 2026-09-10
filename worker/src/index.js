@@ -4311,6 +4311,167 @@ if (adminRadarIdMatch && request.method === "DELETE") {
 
 
     // ------------------------------------------------------------
+    // ADMINISTRATION — ZONE STAFF
+    // ------------------------------------------------------------
+
+    if (url.pathname === "/api/admin/zone-staff" && request.method === "GET") {
+      const session = await requireAdmin(request, env);
+      if (!session) return jsonAuth(request, { error: "Accès Admin requis" }, 403, env);
+
+      try {
+        const { results } = await env.DB.prepare(`
+          SELECT
+            zs.zone_id,
+            zs.discord_user_id,
+            zs.role,
+            zs.assigned_by,
+            zs.created_at,
+            z.slug AS zone_slug,
+            z.name AS zone_name
+          FROM zone_staff zs
+          INNER JOIN zones z ON z.id = zs.zone_id
+          ORDER BY z.name ASC, zs.discord_user_id ASC, zs.role ASC
+        `).all();
+
+        return jsonAuth(request, results || [], 200, env);
+      } catch (error) {
+        console.error("Erreur D1 /admin/zone-staff:", error);
+        return jsonAuth(request, { error: "Erreur lors de la lecture des affectations Zone Staff" }, 500, env);
+      }
+    }
+
+    const zoneStaffManageMatch = url.pathname.match(
+      /^\/api\/admin\/zone-staff\/(\d{17,20})$/
+    );
+
+    if (zoneStaffManageMatch && request.method === "PUT") {
+      const session = await requireAdmin(request, env);
+      if (!session) return jsonAuth(request, { error: "Accès Admin requis" }, 403, env);
+
+      const discordUserId = zoneStaffManageMatch[1];
+      let body;
+
+      try {
+        body = await request.json();
+      } catch {
+        return jsonAuth(request, { error: "Requête JSON invalide" }, 400, env);
+      }
+
+      const zoneId = Number(body?.zone_id);
+      if (!Number.isInteger(zoneId) || zoneId <= 0) {
+        return jsonAuth(request, { error: "zone_id invalide" }, 400, env);
+      }
+
+      if (!Array.isArray(body?.roles)) {
+        return jsonAuth(request, { error: "roles doit être un tableau" }, 400, env);
+      }
+
+      const roles = [...new Set(body.roles.map(value => String(value).trim()))];
+      const allowedRoles = new Set(["manager", "template_manager"]);
+      const invalidRoles = roles.filter(role => !allowedRoles.has(role));
+
+      if (invalidRoles.length > 0) {
+        return jsonAuth(request, {
+          error: "Rôle Zone Staff invalide",
+          invalid_roles: invalidRoles
+        }, 400, env);
+      }
+
+      const member = await fetchDiscordGuildMember(discordUserId, env);
+      if (!member?.user?.id) {
+        await writeAdminLog(
+          env,
+          session.user.id,
+          "zone_staff_assignment_update",
+          "zone_staff",
+          discordUserId,
+          "denied",
+          "Utilisateur Discord introuvable",
+          { zone_id: zoneId, roles }
+        );
+        return jsonAuth(request, { error: "Utilisateur introuvable dans le serveur Discord" }, 404, env);
+      }
+
+      const zone = await env.DB.prepare(`
+        SELECT id, slug, name
+        FROM zones
+        WHERE id = ?
+          AND status = 'active'
+        LIMIT 1
+      `).bind(zoneId).first();
+
+      if (!zone) {
+        await writeAdminLog(
+          env,
+          session.user.id,
+          "zone_staff_assignment_update",
+          "zone_staff",
+          discordUserId,
+          "denied",
+          "Zone active invalide",
+          { zone_id: zoneId, roles }
+        );
+        return jsonAuth(request, { error: "Zone invalide ou inactive" }, 400, env);
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const statements = [
+        env.DB.prepare(`
+          DELETE FROM zone_staff
+          WHERE zone_id = ?
+            AND discord_user_id = ?
+        `).bind(zoneId, discordUserId)
+      ];
+
+      for (const role of roles) {
+        statements.push(
+          env.DB.prepare(`
+            INSERT INTO zone_staff (zone_id, discord_user_id, role, assigned_by, created_at)
+            VALUES (?, ?, ?, ?, ?)
+          `).bind(zoneId, discordUserId, role, session.user.id, now)
+        );
+      }
+
+      statements.push(
+        env.DB.prepare(`
+          INSERT INTO admin_logs
+            (actor_discord_id, action, target_type, target_id, result, reason, metadata, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          session.user.id,
+          "zone_staff_assignment_update",
+          "zone_staff",
+          discordUserId,
+          "success",
+          "Affectations Zone Staff mises à jour",
+          JSON.stringify({ zone_id: zoneId, zone_slug: zone.slug, roles }),
+          now
+        )
+      );
+
+      try {
+        await env.DB.batch(statements);
+        return jsonAuth(request, {
+          ok: true,
+          user: {
+            id: member.user.id,
+            username: member.user.username || null,
+            global_name: member.user.global_name || null
+          },
+          zone: {
+            id: Number(zone.id),
+            slug: zone.slug,
+            name: zone.name
+          },
+          roles
+        }, 200, env);
+      } catch (error) {
+        console.error("Erreur D1 /admin/zone-staff PUT:", error);
+        return jsonAuth(request, { error: "Impossible d'enregistrer les affectations Zone Staff" }, 500, env);
+      }
+    }
+
+    // ------------------------------------------------------------
     // RADAR DEV — TEST SCAN + PIXEL ANALYSIS + EVENT LIFECYCLE
     // ------------------------------------------------------------
     if (url.pathname === "/api/admin/radar/test-scan" && request.method === "POST") {
