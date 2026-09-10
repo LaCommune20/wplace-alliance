@@ -4722,6 +4722,97 @@ function hexToBytes(hex) {
 
 
 // ================================================================
+// PERMISSIONS ZONE STAFF — PR3 CANDIDAT
+// ================================================================
+// WPlace La Commune — candidat helper permissions Zone Staff
+// PR suivant : permissions serveur pour Notes / Templates / futurs modules.
+// Politique V1 :
+//   admin            = global
+//   moderator        = zone_moderators(zone)
+//   manager          = zone_staff(zone, manager)
+//   template_manager = zone_staff(zone, template_manager)
+//   zone_admin       = conserve son traitement DEV existant ; ne pas élargir ici.
+//
+// Important : ce helper ne modifie pas session.access et ne transforme pas
+// manager/template_manager en rôles globaux. Les droits sont évalués avec
+// l'utilisateur + la zone concernée côté Worker/D1.
+
+const ZONE_PERMISSION = Object.freeze({
+  NOTES_MANAGE: "notes_manage",
+  TEMPLATES_MANAGE: "templates_manage"
+});
+
+async function hasZoneStaffRole(db, zoneId, discordUserId, role) {
+  if (!db || !Number.isInteger(Number(zoneId)) || Number(zoneId) <= 0) return false;
+  if (!discordUserId || !role) return false;
+
+  const row = await db.prepare(`
+    SELECT 1
+    FROM zone_staff
+    WHERE zone_id = ?
+      AND discord_user_id = ?
+      AND role = ?
+    LIMIT 1
+  `).bind(Number(zoneId), String(discordUserId), role).first();
+
+  return Boolean(row);
+}
+
+async function hasZoneModeratorRole(db, zoneId, discordUserId) {
+  if (!db || !Number.isInteger(Number(zoneId)) || Number(zoneId) <= 0) return false;
+  if (!discordUserId) return false;
+
+  const row = await db.prepare(`
+    SELECT 1
+    FROM zone_moderators
+    WHERE zone_id = ?
+      AND discord_user_id = ?
+    LIMIT 1
+  `).bind(Number(zoneId), String(discordUserId)).first();
+
+  return Boolean(row);
+}
+
+async function canManageZoneResource(db, session, zoneId, permission) {
+  if (!session?.user?.id || !db) return false;
+  if (!Number.isInteger(Number(zoneId)) || Number(zoneId) <= 0) return false;
+
+  if (session.access === "admin") return true;
+
+  switch (permission) {
+    case ZONE_PERMISSION.NOTES_MANAGE:
+      if (session.access === "moderator") {
+        return hasZoneModeratorRole(db, zoneId, session.user.id);
+      }
+      if (session.access === "member") {
+        return hasZoneStaffRole(db, zoneId, session.user.id, "manager");
+      }
+      return false;
+
+    case ZONE_PERMISSION.TEMPLATES_MANAGE:
+      if (session.access === "moderator") {
+        return hasZoneModeratorRole(db, zoneId, session.user.id);
+      }
+      if (session.access === "member") {
+        return hasZoneStaffRole(db, zoneId, session.user.id, "template_manager");
+      }
+      return false;
+
+    default:
+      return false;
+  }
+}
+
+async function canManageNotes(db, session, zoneId) {
+  return canManageZoneResource(db, session, zoneId, ZONE_PERMISSION.NOTES_MANAGE);
+}
+
+async function canManageTemplates(db, session, zoneId) {
+  return canManageZoneResource(db, session, zoneId, ZONE_PERMISSION.TEMPLATES_MANAGE);
+}
+
+
+// ================================================================
 // AUTHENTIFICATION DISCORD — OAUTH2
 // ================================================================
 
