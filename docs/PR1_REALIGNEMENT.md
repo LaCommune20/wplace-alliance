@@ -1,29 +1,37 @@
-# PR1 — Réalignement du backend
+# PR1 — Réalignement DEV / dépôt
 
-PR1 ajoute le premier backend Worker réellement versionné au dépôt.
+## Objet
 
-## Scope
+Cette phase commence le réalignement entre le schéma réellement utilisé en DEV et le dépôt GitHub.
 
-- versionner le Worker DEV actuellement validé ;
-- ajouter les migrations de synchronisation du schéma ;
-- documenter le périmètre et les limites connues ;
-- ne pas modifier le comportement fonctionnel du Radar.
+## Inclus
+
+- synchronisation du `CHECK` de `template_history` pour accepter `upload` ;
+- ajout du schéma Radar actuellement utilisé en DEV ;
+- documentation du contrat Worker et des limites connues.
 
 ## Hors scope
 
+- déploiement Cloudflare ;
+- PROD ;
 - correction du scheduler ;
 - budget de scan ;
 - notifications ;
 - refactor du moteur Radar ;
-- WebSocket ;
-- Durable Objects ;
-- déploiement PROD.
+- changement du comportement nominal du scan.
 
-Le Worker conserve volontairement les éléments de test DEV dans cette première PR afin d'éviter de mélanger réalignement et refactorisation.
+## Point important
 
-## Vérifications
+Le Worker DEV complet existe actuellement hors de l'arborescence backend du dépôt. Cette PR ne remplace pas le placeholder historique `oauth-worker-next.js` par une copie partielle du Worker : le raccord du source Worker doit être effectué avec une intégration complète et vérifiable, dans une étape dédiée.
 
-- `node --check worker/src/index.js` : PASS
-- scan basique de secrets : PASS
-- aucune modification de `0001`/`0002`
-- aucune écriture Cloudflare effectuée par cette PR
+Cette décision évite de créer un dépôt contenant un faux point d'entrée ou un Worker incomplet.
+
+## Suite
+
+Après validation de la synchronisation SQL :
+
+1. intégrer le Worker DEV complet comme source versionnée ;
+2. séparer proprement les outils de test DEV ;
+3. seulement ensuite corriger le scheduler ;
+4. ajouter le budget borné/priorisé ;
+5. observations, confirmation et notifications.
