@@ -1,14 +1,14 @@
 async function runRadarScan(env, radarIdInput, options = {}) {
-  const body = options?.body && typeof options.body === "object" ? options.body : {};
+  const scanOptions = options && typeof options === "object" ? options : {};
 
   function radarScanResult(data, status = 200, _env = null) {
     return { data, status };
   }
 
-        const radarId = String(radarIdInput || body?.radar_id || "dev-test").trim();
+        const radarId = String(radarIdInput || "").trim();
         const scanStartedAt = new Date().toISOString();
-        let zoneId = body?.zone_id == null ? null : Number(body.zone_id);
-        let tiles = Array.isArray(body?.tiles) && body.tiles.length ? body.tiles : null;
+        let zoneId = scanOptions.zoneId == null ? null : Number(scanOptions.zoneId);
+        let tiles = Array.isArray(scanOptions.tiles) && scanOptions.tiles.length ? scanOptions.tiles : null;
         let radarScope = null;
 
         // Real Radars are resolved from D1 when no explicit tile override is supplied.
@@ -23,20 +23,14 @@ async function runRadarScan(env, radarIdInput, options = {}) {
               last_error_at: null
             });
           } catch (error) {
-            if (radarId !== "dev-test") {
-              return radarScanResult({ error: error instanceof Error ? error.message : String(error) }, 400, env);
-            }
-            tiles = [{ tileX: 1057, tileY: 751 }];
+            return radarScanResult({ error: error instanceof Error ? error.message : String(error) }, 400, env);
           }
-        } else if (radarId !== "dev-test") {
+        } else {
           await updateRadarScanMetadata(env.DB, radarId, {
             last_scan_at: scanStartedAt,
             last_error_at: null
           });
         }
-        const failTile = body?.fail_tile && Number.isInteger(Number(body.fail_tile.tileX)) && Number.isInteger(Number(body.fail_tile.tileY))
-          ? { tileX: Number(body.fail_tile.tileX), tileY: Number(body.fail_tile.tileY) }
-          : null;
 
         if (!/^[A-Za-z0-9._:-]{1,120}$/.test(radarId)) {
           return radarScanResult({ error: "radar_id invalide" }, 400, env);
@@ -91,11 +85,10 @@ async function runRadarScan(env, radarIdInput, options = {}) {
           for (const tile of normalizedTiles) {
             const key = radarTileKey(tile.tileX, tile.tileY);
             try {
-              if (failTile && failTile.tileX === tile.tileX && failTile.tileY === tile.tileY) {
-                throw new Error(`Échec simulé pour ${key}`);
-              }
 
-              const currentTile = await fetchRadarProxyTile(env, tile.tileX, tile.tileY);
+              const currentTile = typeof scanOptions.fetchTile === "function"
+                ? await scanOptions.fetchTile(tile.tileX, tile.tileY)
+                : await fetchRadarProxyTile(env, tile.tileX, tile.tileY);
               const previousObject = current
                 ? await env.RADAR_BUCKET.get(radarCommittedTileKey(radarId, current.version, tile.tileX, tile.tileY))
                 : null;
@@ -110,8 +103,8 @@ async function runRadarScan(env, radarIdInput, options = {}) {
                   const previousDecoded = await radarDecodePng(previousBytes.buffer);
                   const currentDecoded = await radarDecodePng(currentTile.bytes.buffer);
                   analysis = radarAnalyzeTileChange(previousDecoded, currentDecoded, {
-                    minRegionPixels: Number(body?.min_region_pixels ?? 2),
-                    maxRegions: Number(body?.max_regions ?? 128)
+                    minRegionPixels: Number(scanOptions.minRegionPixels ?? 2),
+                    maxRegions: Number(scanOptions.maxRegions ?? 128)
                   });
                 }
               }
@@ -4336,7 +4329,28 @@ if (adminRadarIdMatch && request.method === "DELETE") {
       catch { return jsonAuth(request, { error: "Requête JSON invalide" }, 400, env); }
 
       const radarId = String(body?.radar_id || "dev-test").trim();
-      const result = await runRadarScan(env, radarId, { body });
+      const testTiles = Array.isArray(body?.tiles) && body.tiles.length
+        ? body.tiles
+        : (radarId === "dev-test" ? [{ tileX: 1057, tileY: 751 }] : null);
+      const failTile = body?.fail_tile
+        && Number.isInteger(Number(body.fail_tile.tileX))
+        && Number.isInteger(Number(body.fail_tile.tileY))
+        ? { tileX: Number(body.fail_tile.tileX), tileY: Number(body.fail_tile.tileY) }
+        : null;
+
+      const result = await runRadarScan(env, radarId, {
+        zoneId: body?.zone_id == null ? null : Number(body.zone_id),
+        tiles: testTiles,
+        minRegionPixels: Number(body?.min_region_pixels ?? 2),
+        maxRegions: Number(body?.max_regions ?? 128),
+        fetchTile: async (tileX, tileY) => {
+          if (failTile && failTile.tileX === tileX && failTile.tileY === tileY) {
+            throw new Error(`Échec simulé pour ${radarTileKey(tileX, tileY)}`);
+          }
+          return fetchRadarProxyTile(env, tileX, tileY);
+        }
+      });
+
       return jsonAuth(request, result.data, result.status, env);
     }
 
