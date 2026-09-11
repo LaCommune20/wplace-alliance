@@ -864,8 +864,8 @@ const adminTemplateIdMatch = url.pathname.match(/^\/api\/admin\/templates\/(\d+)
 const adminTemplateUploadMatch = url.pathname.match(/^\/api\/admin\/templates\/(\d+)\/upload$/);
 
 if (url.pathname === "/api/admin/templates" && request.method === "GET") {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
 
   try {
     const result = await env.DB.prepare(`
@@ -894,8 +894,8 @@ if (url.pathname === "/api/admin/templates" && request.method === "GET") {
 }
 
 if (url.pathname === "/api/admin/templates" && request.method === "POST") {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
 
   let body;
   try { body = await request.json(); }
@@ -969,8 +969,8 @@ if (url.pathname === "/api/admin/templates" && request.method === "POST") {
 }
 
 if (adminTemplateIdMatch && request.method === "GET") {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
   const templateId = Number(adminTemplateIdMatch[1]);
   try {
     const template = await env.DB.prepare(`
@@ -993,8 +993,8 @@ if (adminTemplateIdMatch && request.method === "GET") {
 }
 
 if (adminTemplateIdMatch && ["PATCH", "PUT"].includes(request.method)) {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
   const templateId = Number(adminTemplateIdMatch[1]);
 
   let body;
@@ -1056,8 +1056,8 @@ if (adminTemplateIdMatch && ["PATCH", "PUT"].includes(request.method)) {
 
 // DELETE = archivage logique : aucune suppression physique pour conserver l'historique.
 if (adminTemplateIdMatch && request.method === "DELETE") {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
   const templateId = Number(adminTemplateIdMatch[1]);
   try {
     const current = await env.DB.prepare("SELECT * FROM templates WHERE id=? LIMIT 1").bind(templateId).first();
@@ -1099,12 +1099,12 @@ if (adminTemplateIdMatch && request.method === "DELETE") {
 // ------------------------------------------------------------
 
 if (adminTemplateUploadMatch && request.method === "POST") {
-  const session = await requireAdminOrModerator(request, env);
+  const session = await requireMember(request, env);
   if (!session) {
     return jsonAuth(
       request,
-      { error: "Accès administrateur requis" },
-      403,
+      { error: "Authentification requise" },
+      401,
       env
     );
   }
