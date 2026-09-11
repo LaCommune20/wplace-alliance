@@ -868,7 +868,7 @@ if (url.pathname === "/api/admin/templates" && request.method === "GET") {
   if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
 
   try {
-    const sql = session.access === "admin" ? `
+    const result = await env.DB.prepare(`
       SELECT t.id, t.zone_id, z.slug AS zone_slug, z.name AS zone_name,
              t.slug, t.name, t.description, t.r2_key, t.wplace_url,
              t.status, t.version, t.created_by, t.updated_by,
@@ -876,21 +876,17 @@ if (url.pathname === "/api/admin/templates" && request.method === "GET") {
       FROM templates t
       INNER JOIN zones z ON z.id = t.zone_id
       ORDER BY z.name ASC, t.name ASC, t.version DESC
-    ` : `
-      SELECT t.id, t.zone_id, z.slug AS zone_slug, z.name AS zone_name,
-             t.slug, t.name, t.description, t.r2_key, t.wplace_url,
-             t.status, t.version, t.created_by, t.updated_by,
-             t.created_at, t.updated_at
-      FROM templates t
-      INNER JOIN zones z ON z.id = t.zone_id
-      INNER JOIN zone_moderators mine
-        ON mine.zone_id = z.id AND mine.discord_user_id = ?
-      ORDER BY z.name ASC, t.name ASC, t.version DESC
-    `;
-    const result = session.access === "admin"
-      ? await env.DB.prepare(sql).all()
-      : await env.DB.prepare(sql).bind(session.user.id).all();
-    return jsonAuth(request, result?.results || [], 200, env);
+    `).all();
+
+    const templates = session.access === "admin"
+      ? (result?.results || [])
+      : (await Promise.all(
+          (result?.results || []).map(async template =>
+            (await canManageTemplates(env.DB, session, template.zone_id)) ? template : null
+          )
+        )).filter(Boolean);
+
+    return jsonAuth(request, templates, 200, env);
   } catch (error) {
     console.error("Erreur D1 /api/admin/templates GET:", error);
     return jsonAuth(request, { error: "Erreur lors de la lecture des templates" }, 500, env);
@@ -924,13 +920,9 @@ if (url.pathname === "/api/admin/templates" && request.method === "POST") {
     if (!zone) return jsonAuth(request, { error: "Zone introuvable" }, 404, env);
     if (zone.status !== "active") return jsonAuth(request, { error: "La zone doit être active" }, 400, env);
 
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`SELECT 1 FROM zone_moderators WHERE zone_id = ? AND discord_user_id = ? LIMIT 1`)
-        .bind(zoneId, session.user.id).first();
-      if (!assigned) {
-        await writeAdminLog(env, session.user.id, "template_create", "zone", zoneId, "denied", "Zone non attribuée");
-        return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
-      }
+    if (!(await canManageTemplates(env.DB, session, zoneId))) {
+      await writeAdminLog(env, session.user.id, "template_create", "zone", zoneId, "denied", "Zone non attribuée");
+      return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
     }
 
     const conflict = await env.DB.prepare("SELECT id FROM templates WHERE zone_id = ? AND slug = ? LIMIT 1")
@@ -990,10 +982,8 @@ if (adminTemplateIdMatch && request.method === "GET") {
       WHERE t.id=? LIMIT 1
     `).bind(templateId).first();
     if (!template) return jsonAuth(request, { error: "Template introuvable" }, 404, env);
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`SELECT 1 FROM zone_moderators WHERE zone_id=? AND discord_user_id=? LIMIT 1`)
-        .bind(template.zone_id, session.user.id).first();
-      if (!assigned) return jsonAuth(request, { error: "Template non autorisé" }, 403, env);
+    if (!(await canManageTemplates(env.DB, session, template.zone_id))) {
+      return jsonAuth(request, { error: "Template non autorisé" }, 403, env);
     }
     return jsonAuth(request, template, 200, env);
   } catch (error) {
@@ -1015,13 +1005,9 @@ if (adminTemplateIdMatch && ["PATCH", "PUT"].includes(request.method)) {
     const current = await env.DB.prepare("SELECT * FROM templates WHERE id=? LIMIT 1").bind(templateId).first();
     if (!current) return jsonAuth(request, { error: "Template introuvable" }, 404, env);
 
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`SELECT 1 FROM zone_moderators WHERE zone_id=? AND discord_user_id=? LIMIT 1`)
-        .bind(current.zone_id, session.user.id).first();
-      if (!assigned) {
-        await writeAdminLog(env, session.user.id, "template_update", "template", templateId, "denied", "Zone non attribuée");
-        return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
-      }
+    if (!(await canManageTemplates(env.DB, session, current.zone_id))) {
+      await writeAdminLog(env, session.user.id, "template_update", "template", templateId, "denied", "Zone non attribuée");
+      return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
     }
 
     const slug = Object.prototype.hasOwnProperty.call(body, "slug") ? String(body.slug || "").trim().toLowerCase() : current.slug;
@@ -1076,10 +1062,8 @@ if (adminTemplateIdMatch && request.method === "DELETE") {
   try {
     const current = await env.DB.prepare("SELECT * FROM templates WHERE id=? LIMIT 1").bind(templateId).first();
     if (!current) return jsonAuth(request, { error: "Template introuvable" }, 404, env);
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`SELECT 1 FROM zone_moderators WHERE zone_id=? AND discord_user_id=? LIMIT 1`)
-        .bind(current.zone_id, session.user.id).first();
-      if (!assigned) return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
+    if (!(await canManageTemplates(env.DB, session, current.zone_id))) {
+      return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
     }
     if (current.status === "archived") return jsonAuth(request, { ok: true, archived: true }, 200, env);
 
@@ -1221,33 +1205,23 @@ if (adminTemplateUploadMatch && request.method === "POST") {
       );
     }
 
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`
-        SELECT 1
-        FROM zone_moderators
-        WHERE zone_id = ?
-          AND discord_user_id = ?
-        LIMIT 1
-      `).bind(template.zone_id, session.user.id).first();
+    if (!(await canManageTemplates(env.DB, session, template.zone_id))) {
+      await writeAdminLog(
+        env,
+        session.user.id,
+        "template_upload",
+        "template",
+        templateId,
+        "denied",
+        "Zone non attribuée"
+      );
 
-      if (!assigned) {
-        await writeAdminLog(
-          env,
-          session.user.id,
-          "template_upload",
-          "template",
-          templateId,
-          "denied",
-          "Zone non attribuée"
-        );
-
-        return jsonAuth(
-          request,
-          { error: "Cette zone ne vous est pas attribuée" },
-          403,
-          env
-        );
-      }
+      return jsonAuth(
+        request,
+        { error: "Cette zone ne vous est pas attribuée" },
+        403,
+        env
+      );
     }
 
     // Si Content-Length est absent, on bufferise uniquement dans ce cas
