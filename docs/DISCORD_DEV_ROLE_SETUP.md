@@ -6,6 +6,10 @@ Préparer le serveur Discord DEV pour le modèle métier V1 sans encore modifier
 
 Cette étape est volontairement séparée de l'implémentation serveur : les rôles doivent d'abord exister et être identifiables de manière stable.
 
+## Serveur Discord DEV
+
+- `WPLACE LA COMMUNE` → `1544517835127128107`
+
 ## Rôles métier V1
 
 Ordre de hiérarchie retenu :
@@ -21,6 +25,22 @@ Ordre de hiérarchie retenu :
 
 `Neutre` n'est pas un rôle utilisateur Discord : c'est une classification métier des zones/affichages.
 
+## IDs Discord DEV relevés
+
+Les rôles métier ont maintenant été créés/vérifiés sur le serveur DEV et leurs IDs ont été relevés :
+
+| Rôle | Discord role ID |
+|---|---|
+| Admin | `1544518579607699466` |
+| Modérateur | `1544518813918433300` |
+| Gérant de zone | `1548049796026339430` |
+| Responsable des templates | `1548049949449523230` |
+| Allié | `1548050034749341706` |
+| Communard | `1548050120715538613` |
+| Sympathisant | `1548050200344526928` |
+
+Ces IDs sont des identifiants publics de rôles Discord et ne constituent pas des secrets. Ils pourront être utilisés dans la configuration Worker correspondante.
+
 ## Règles de création
 
 - Créer les rôles avec exactement les noms métier ci-dessus.
@@ -29,7 +49,7 @@ Ordre de hiérarchie retenu :
 - Ne pas donner de permissions Discord d'administration aux rôles métier simplement pour leur permettre d'utiliser WPlace La Commune.
 - Les permissions d'accès à l'application restent contrôlées côté Worker/D1.
 
-## IDs actuellement déjà utilisés par le Worker
+## Variables d'environnement Worker
 
 Le Worker utilise déjà deux variables d'environnement :
 
@@ -38,14 +58,21 @@ Le Worker utilise déjà deux variables d'environnement :
 
 Leur valeur reste hors Git et doit rester configurée dans Cloudflare.
 
-## Nouveaux IDs à prévoir
-
 Le modèle métier nécessite ensuite quatre nouvelles variables d'environnement :
 
 - `DISCORD_ZONE_MANAGER_ROLE_ID`
 - `DISCORD_TEMPLATE_MANAGER_ROLE_ID`
 - `DISCORD_ALLY_ROLE_ID`
 - `DISCORD_COMMUNARD_ROLE_ID`
+
+Correspondance DEV prévue :
+
+- `DISCORD_ADMIN_ROLE_ID` → `1544518579607699466`
+- `DISCORD_MODERATOR_ROLE_ID` → `1544518813918433300`
+- `DISCORD_ZONE_MANAGER_ROLE_ID` → `1548049796026339430`
+- `DISCORD_TEMPLATE_MANAGER_ROLE_ID` → `1548049949449523230`
+- `DISCORD_ALLY_ROLE_ID` → `1548050034749341706`
+- `DISCORD_COMMUNARD_ROLE_ID` → `1548050120715538613`
 
 Le rôle `Sympathisant` n'a pas besoin d'un ID pour les permissions d'administration : son absence de permission est le comportement par défaut. Il pourra néanmoins être utilisé plus tard pour des fonctionnalités métier spécifiques.
 
@@ -82,8 +109,8 @@ Les rôles `manager` et `template_manager` ne doivent pas devenir des valeurs gl
 
 ## Ordre d'implémentation
 
-1. Créer/vérifier les rôles dans Discord DEV.
-2. Relever leurs IDs.
+1. Créer/vérifier les rôles dans Discord DEV. — fait
+2. Relever leurs IDs. — fait
 3. Ajouter les noms de variables d'environnement au Worker sans exposer leurs valeurs.
 4. Ajouter une fonction serveur de lecture des rôles métier.
 5. Faire évoluer les permissions une par une.
