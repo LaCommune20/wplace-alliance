@@ -509,6 +509,113 @@ export default {
     }
 
 
+    if (url.pathname === "/api/admin/access" && request.method === "GET") {
+      const session = await getSession(request, env);
+
+      if (!session) {
+        return jsonAuth(
+          request,
+          { authenticated: false },
+          401,
+          env
+        );
+      }
+
+      try {
+        let templateZoneIds = [];
+        let notesZoneIds = [];
+
+        if (session.access === "admin") {
+          const { results } = await env.DB.prepare(`
+            SELECT id
+            FROM zones
+            WHERE status = 'active'
+            ORDER BY id ASC
+          `).all();
+
+          const ids = (results || [])
+            .map(row => Number(row.id))
+            .filter(Number.isInteger);
+
+          templateZoneIds = ids;
+          notesZoneIds = ids;
+        } else if (session.access === "moderator") {
+          const { results } = await env.DB.prepare(`
+            SELECT DISTINCT zm.zone_id
+            FROM zone_moderators zm
+            INNER JOIN zones z ON z.id = zm.zone_id
+            WHERE zm.discord_user_id = ?
+              AND z.status = 'active'
+            ORDER BY zm.zone_id ASC
+          `).bind(session.user.id).all();
+
+          const ids = (results || [])
+            .map(row => Number(row.zone_id))
+            .filter(Number.isInteger);
+
+          templateZoneIds = ids;
+          notesZoneIds = ids;
+        } else if (session.access === "member") {
+          const { results } = await env.DB.prepare(`
+            SELECT zs.zone_id, zs.role
+            FROM zone_staff zs
+            INNER JOIN zones z ON z.id = zs.zone_id
+            WHERE zs.discord_user_id = ?
+              AND zs.role IN ('manager', 'template_manager')
+              AND z.status = 'active'
+            ORDER BY zs.zone_id ASC, zs.role ASC
+          `).bind(session.user.id).all();
+
+          for (const row of results || []) {
+            const zoneId = Number(row.zone_id);
+
+            if (!Number.isInteger(zoneId)) continue;
+
+            if (row.role === "manager") {
+              notesZoneIds.push(zoneId);
+            }
+
+            if (row.role === "template_manager") {
+              templateZoneIds.push(zoneId);
+            }
+          }
+
+          templateZoneIds = [...new Set(templateZoneIds)];
+          notesZoneIds = [...new Set(notesZoneIds)];
+        }
+
+        return jsonAuth(
+          request,
+          {
+            authenticated: true,
+            access: session.access,
+            permissions: {
+              templates_manage: templateZoneIds.length > 0,
+              notes_manage: notesZoneIds.length > 0
+            },
+            zones: {
+              templates_manage: templateZoneIds,
+              notes_manage: notesZoneIds
+            }
+          },
+          200,
+          env
+        );
+      } catch (error) {
+        console.error("Erreur D1 /api/admin/access GET:", error);
+
+        return jsonAuth(
+          request,
+          {
+            error: "Impossible de déterminer les permissions d'administration"
+          },
+          500,
+          env
+        );
+      }
+    }
+
+
     // ------------------------------------------------------------
     // API DEV — accueil
     // ------------------------------------------------------------
