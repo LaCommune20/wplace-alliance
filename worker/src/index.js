@@ -509,6 +509,113 @@ export default {
     }
 
 
+    if (url.pathname === "/api/admin/access" && request.method === "GET") {
+      const session = await getSession(request, env);
+
+      if (!session) {
+        return jsonAuth(
+          request,
+          { authenticated: false },
+          401,
+          env
+        );
+      }
+
+      try {
+        let templateZoneIds = [];
+        let notesZoneIds = [];
+
+        if (session.access === "admin") {
+          const { results } = await env.DB.prepare(`
+            SELECT id
+            FROM zones
+            WHERE status = 'active'
+            ORDER BY id ASC
+          `).all();
+
+          const ids = (results || [])
+            .map(row => Number(row.id))
+            .filter(Number.isInteger);
+
+          templateZoneIds = ids;
+          notesZoneIds = ids;
+        } else if (session.access === "moderator") {
+          const { results } = await env.DB.prepare(`
+            SELECT DISTINCT zm.zone_id
+            FROM zone_moderators zm
+            INNER JOIN zones z ON z.id = zm.zone_id
+            WHERE zm.discord_user_id = ?
+              AND z.status = 'active'
+            ORDER BY zm.zone_id ASC
+          `).bind(session.user.id).all();
+
+          const ids = (results || [])
+            .map(row => Number(row.zone_id))
+            .filter(Number.isInteger);
+
+          templateZoneIds = ids;
+          notesZoneIds = ids;
+        } else if (session.access === "member") {
+          const { results } = await env.DB.prepare(`
+            SELECT zs.zone_id, zs.role
+            FROM zone_staff zs
+            INNER JOIN zones z ON z.id = zs.zone_id
+            WHERE zs.discord_user_id = ?
+              AND zs.role IN ('manager', 'template_manager')
+              AND z.status = 'active'
+            ORDER BY zs.zone_id ASC, zs.role ASC
+          `).bind(session.user.id).all();
+
+          for (const row of results || []) {
+            const zoneId = Number(row.zone_id);
+
+            if (!Number.isInteger(zoneId)) continue;
+
+            if (row.role === "manager") {
+              notesZoneIds.push(zoneId);
+            }
+
+            if (row.role === "template_manager") {
+              templateZoneIds.push(zoneId);
+            }
+          }
+
+          templateZoneIds = [...new Set(templateZoneIds)];
+          notesZoneIds = [...new Set(notesZoneIds)];
+        }
+
+        return jsonAuth(
+          request,
+          {
+            authenticated: true,
+            access: session.access,
+            permissions: {
+              templates_manage: templateZoneIds.length > 0,
+              notes_manage: notesZoneIds.length > 0
+            },
+            zones: {
+              templates_manage: templateZoneIds,
+              notes_manage: notesZoneIds
+            }
+          },
+          200,
+          env
+        );
+      } catch (error) {
+        console.error("Erreur D1 /api/admin/access GET:", error);
+
+        return jsonAuth(
+          request,
+          {
+            error: "Impossible de déterminer les permissions d'administration"
+          },
+          500,
+          env
+        );
+      }
+    }
+
+
     // ------------------------------------------------------------
     // API DEV — accueil
     // ------------------------------------------------------------
@@ -864,11 +971,11 @@ const adminTemplateIdMatch = url.pathname.match(/^\/api\/admin\/templates\/(\d+)
 const adminTemplateUploadMatch = url.pathname.match(/^\/api\/admin\/templates\/(\d+)\/upload$/);
 
 if (url.pathname === "/api/admin/templates" && request.method === "GET") {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
 
   try {
-    const sql = session.access === "admin" ? `
+    const result = await env.DB.prepare(`
       SELECT t.id, t.zone_id, z.slug AS zone_slug, z.name AS zone_name,
              t.slug, t.name, t.description, t.r2_key, t.wplace_url,
              t.status, t.version, t.created_by, t.updated_by,
@@ -876,21 +983,17 @@ if (url.pathname === "/api/admin/templates" && request.method === "GET") {
       FROM templates t
       INNER JOIN zones z ON z.id = t.zone_id
       ORDER BY z.name ASC, t.name ASC, t.version DESC
-    ` : `
-      SELECT t.id, t.zone_id, z.slug AS zone_slug, z.name AS zone_name,
-             t.slug, t.name, t.description, t.r2_key, t.wplace_url,
-             t.status, t.version, t.created_by, t.updated_by,
-             t.created_at, t.updated_at
-      FROM templates t
-      INNER JOIN zones z ON z.id = t.zone_id
-      INNER JOIN zone_moderators mine
-        ON mine.zone_id = z.id AND mine.discord_user_id = ?
-      ORDER BY z.name ASC, t.name ASC, t.version DESC
-    `;
-    const result = session.access === "admin"
-      ? await env.DB.prepare(sql).all()
-      : await env.DB.prepare(sql).bind(session.user.id).all();
-    return jsonAuth(request, result?.results || [], 200, env);
+    `).all();
+
+    const templates = session.access === "admin"
+      ? (result?.results || [])
+      : (await Promise.all(
+          (result?.results || []).map(async template =>
+            (await canManageTemplates(env.DB, session, template.zone_id)) ? template : null
+          )
+        )).filter(Boolean);
+
+    return jsonAuth(request, templates, 200, env);
   } catch (error) {
     console.error("Erreur D1 /api/admin/templates GET:", error);
     return jsonAuth(request, { error: "Erreur lors de la lecture des templates" }, 500, env);
@@ -898,8 +1001,8 @@ if (url.pathname === "/api/admin/templates" && request.method === "GET") {
 }
 
 if (url.pathname === "/api/admin/templates" && request.method === "POST") {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
 
   let body;
   try { body = await request.json(); }
@@ -924,13 +1027,9 @@ if (url.pathname === "/api/admin/templates" && request.method === "POST") {
     if (!zone) return jsonAuth(request, { error: "Zone introuvable" }, 404, env);
     if (zone.status !== "active") return jsonAuth(request, { error: "La zone doit être active" }, 400, env);
 
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`SELECT 1 FROM zone_moderators WHERE zone_id = ? AND discord_user_id = ? LIMIT 1`)
-        .bind(zoneId, session.user.id).first();
-      if (!assigned) {
-        await writeAdminLog(env, session.user.id, "template_create", "zone", zoneId, "denied", "Zone non attribuée");
-        return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
-      }
+    if (!(await canManageTemplates(env.DB, session, zoneId))) {
+      await writeAdminLog(env, session.user.id, "template_create", "zone", zoneId, "denied", "Zone non attribuée");
+      return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
     }
 
     const conflict = await env.DB.prepare("SELECT id FROM templates WHERE zone_id = ? AND slug = ? LIMIT 1")
@@ -977,8 +1076,8 @@ if (url.pathname === "/api/admin/templates" && request.method === "POST") {
 }
 
 if (adminTemplateIdMatch && request.method === "GET") {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
   const templateId = Number(adminTemplateIdMatch[1]);
   try {
     const template = await env.DB.prepare(`
@@ -990,10 +1089,8 @@ if (adminTemplateIdMatch && request.method === "GET") {
       WHERE t.id=? LIMIT 1
     `).bind(templateId).first();
     if (!template) return jsonAuth(request, { error: "Template introuvable" }, 404, env);
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`SELECT 1 FROM zone_moderators WHERE zone_id=? AND discord_user_id=? LIMIT 1`)
-        .bind(template.zone_id, session.user.id).first();
-      if (!assigned) return jsonAuth(request, { error: "Template non autorisé" }, 403, env);
+    if (!(await canManageTemplates(env.DB, session, template.zone_id))) {
+      return jsonAuth(request, { error: "Template non autorisé" }, 403, env);
     }
     return jsonAuth(request, template, 200, env);
   } catch (error) {
@@ -1003,8 +1100,8 @@ if (adminTemplateIdMatch && request.method === "GET") {
 }
 
 if (adminTemplateIdMatch && ["PATCH", "PUT"].includes(request.method)) {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
   const templateId = Number(adminTemplateIdMatch[1]);
 
   let body;
@@ -1015,13 +1112,9 @@ if (adminTemplateIdMatch && ["PATCH", "PUT"].includes(request.method)) {
     const current = await env.DB.prepare("SELECT * FROM templates WHERE id=? LIMIT 1").bind(templateId).first();
     if (!current) return jsonAuth(request, { error: "Template introuvable" }, 404, env);
 
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`SELECT 1 FROM zone_moderators WHERE zone_id=? AND discord_user_id=? LIMIT 1`)
-        .bind(current.zone_id, session.user.id).first();
-      if (!assigned) {
-        await writeAdminLog(env, session.user.id, "template_update", "template", templateId, "denied", "Zone non attribuée");
-        return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
-      }
+    if (!(await canManageTemplates(env.DB, session, current.zone_id))) {
+      await writeAdminLog(env, session.user.id, "template_update", "template", templateId, "denied", "Zone non attribuée");
+      return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
     }
 
     const slug = Object.prototype.hasOwnProperty.call(body, "slug") ? String(body.slug || "").trim().toLowerCase() : current.slug;
@@ -1070,16 +1163,14 @@ if (adminTemplateIdMatch && ["PATCH", "PUT"].includes(request.method)) {
 
 // DELETE = archivage logique : aucune suppression physique pour conserver l'historique.
 if (adminTemplateIdMatch && request.method === "DELETE") {
-  const session = await requireAdminOrModerator(request, env);
-  if (!session) return jsonAuth(request, { error: "Accès administrateur requis" }, 403, env);
+  const session = await requireMember(request, env);
+  if (!session) return jsonAuth(request, { error: "Authentification requise" }, 401, env);
   const templateId = Number(adminTemplateIdMatch[1]);
   try {
     const current = await env.DB.prepare("SELECT * FROM templates WHERE id=? LIMIT 1").bind(templateId).first();
     if (!current) return jsonAuth(request, { error: "Template introuvable" }, 404, env);
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`SELECT 1 FROM zone_moderators WHERE zone_id=? AND discord_user_id=? LIMIT 1`)
-        .bind(current.zone_id, session.user.id).first();
-      if (!assigned) return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
+    if (!(await canManageTemplates(env.DB, session, current.zone_id))) {
+      return jsonAuth(request, { error: "Cette zone ne vous est pas attribuée" }, 403, env);
     }
     if (current.status === "archived") return jsonAuth(request, { ok: true, archived: true }, 200, env);
 
@@ -1115,12 +1206,12 @@ if (adminTemplateIdMatch && request.method === "DELETE") {
 // ------------------------------------------------------------
 
 if (adminTemplateUploadMatch && request.method === "POST") {
-  const session = await requireAdminOrModerator(request, env);
+  const session = await requireMember(request, env);
   if (!session) {
     return jsonAuth(
       request,
-      { error: "Accès administrateur requis" },
-      403,
+      { error: "Authentification requise" },
+      401,
       env
     );
   }
@@ -1221,33 +1312,23 @@ if (adminTemplateUploadMatch && request.method === "POST") {
       );
     }
 
-    if (session.access !== "admin") {
-      const assigned = await env.DB.prepare(`
-        SELECT 1
-        FROM zone_moderators
-        WHERE zone_id = ?
-          AND discord_user_id = ?
-        LIMIT 1
-      `).bind(template.zone_id, session.user.id).first();
+    if (!(await canManageTemplates(env.DB, session, template.zone_id))) {
+      await writeAdminLog(
+        env,
+        session.user.id,
+        "template_upload",
+        "template",
+        templateId,
+        "denied",
+        "Zone non attribuée"
+      );
 
-      if (!assigned) {
-        await writeAdminLog(
-          env,
-          session.user.id,
-          "template_upload",
-          "template",
-          templateId,
-          "denied",
-          "Zone non attribuée"
-        );
-
-        return jsonAuth(
-          request,
-          { error: "Cette zone ne vous est pas attribuée" },
-          403,
-          env
-        );
-      }
+      return jsonAuth(
+        request,
+        { error: "Cette zone ne vous est pas attribuée" },
+        403,
+        env
+      );
     }
 
     // Si Content-Length est absent, on bufferise uniquement dans ce cas
