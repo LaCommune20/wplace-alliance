@@ -8,7 +8,7 @@ Cette étape est volontairement séparée de l'implémentation serveur : les rô
 
 ## Serveur Discord DEV
 
-- `WPLACE LA COMMUNE` → `1544517835127128107`
+- `WPLACE LA COMMUNE` → `1388955317692231710`
 
 ## Rôles métier V1
 
@@ -27,17 +27,18 @@ Ordre de hiérarchie retenu :
 
 ## IDs Discord DEV relevés
 
-Les rôles métier ont maintenant été créés/vérifiés sur le serveur DEV et leurs IDs ont été relevés :
+Les rôles métier ont été créés/vérifiés sur le serveur DEV et leurs IDs de référence sont :
 
 | Rôle | Discord role ID |
 |---|---|
-| Admin | `1544518579607699466` |
-| Modérateur | `1544518813918433300` |
-| Gérant de zone | `1548049796026339430` |
-| Responsable des templates | `1548049949449523230` |
-| Allié | `1548050034749341706` |
-| Communard | `1548050120715538613` |
-| Sympathisant | `1548050200344526928` |
+| Admin | `1388955318120046672` |
+| Modérateur | `1388955318292224040` |
+| Gérant de zone | `1411099702863173772` |
+| Responsable des templates | `1411099703018371082` |
+| Allié | `1411099703135817818` |
+| Communard | `1411099703270281216` |
+| Sympathisant | `1411099703370682399` |
+| @everyone | `1388955317692231710` |
 
 Ces IDs sont des identifiants publics de rôles Discord et ne constituent pas des secrets. Ils pourront être utilisés dans la configuration Worker correspondante.
 
@@ -65,14 +66,14 @@ Le modèle métier nécessite ensuite quatre nouvelles variables d'environnement
 - `DISCORD_ALLY_ROLE_ID`
 - `DISCORD_COMMUNARD_ROLE_ID`
 
-Correspondance DEV prévue :
+Correspondance DEV de référence :
 
-- `DISCORD_ADMIN_ROLE_ID` → `1544518579607699466`
-- `DISCORD_MODERATOR_ROLE_ID` → `1544518813918433300`
-- `DISCORD_ZONE_MANAGER_ROLE_ID` → `1548049796026339430`
-- `DISCORD_TEMPLATE_MANAGER_ROLE_ID` → `1548049949449523230`
-- `DISCORD_ALLY_ROLE_ID` → `1548050034749341706`
-- `DISCORD_COMMUNARD_ROLE_ID` → `1548050120715538613`
+- `DISCORD_ADMIN_ROLE_ID` → `1388955318120046672`
+- `DISCORD_MODERATOR_ROLE_ID` → `1388955318292224040`
+- `DISCORD_ZONE_MANAGER_ROLE_ID` → `1411099702863173772`
+- `DISCORD_TEMPLATE_MANAGER_ROLE_ID` → `1411099703018371082`
+- `DISCORD_ALLY_ROLE_ID` → `1411099703135817818`
+- `DISCORD_COMMUNARD_ROLE_ID` → `1411099703270281216`
 
 Le rôle `Sympathisant` n'a pas besoin d'un ID pour les permissions d'administration : son absence de permission est le comportement par défaut. Il pourra néanmoins être utilisé plus tard pour des fonctionnalités métier spécifiques.
 
@@ -111,8 +112,8 @@ Les rôles `manager` et `template_manager` ne doivent pas devenir des valeurs gl
 
 1. Créer/vérifier les rôles dans Discord DEV. — fait
 2. Relever leurs IDs. — fait
-3. Ajouter les noms de variables d'environnement au Worker sans exposer leurs valeurs.
-4. Ajouter une fonction serveur de lecture des rôles métier.
+3. Ajouter les noms de variables d'environnement au Worker sans exposer leurs valeurs. — fait côté documentation
+4. Ajouter une fonction serveur de lecture des rôles métier. — fait dans PR #32
 5. Faire évoluer les permissions une par une.
 6. Tester avec des comptes Discord distincts.
 7. Déployer uniquement le Worker DEV après avertissement explicite.
