@@ -91,8 +91,10 @@
     const canTemplates = access.permissions?.templates_manage === true && templateZones.length > 0;
     const canNotes = access.permissions?.notes_manage === true && notesZones.length > 0;
 
+    // Keep the existing admin/moderator interface untouched.
     if (access.access === "admin" || access.access === "moderator") return false;
 
+    // Zone staff are still members globally; their resource permissions come from /api/admin/access.
     const navs = [...document.querySelectorAll(".navbtn")];
     const allowed = new Set();
     if (canTemplates) allowed.add("templates");
@@ -113,6 +115,7 @@
       button?.classList.add("active");
       section?.classList.add("active");
     } else if (canNotes) {
+      // Notes UI is intentionally not fabricated here; leave the user with a clear state.
       const main = document.querySelector(".main");
       if (main) {
         main.innerHTML = '<section class="section active"><h2>Notes</h2><p>Vous disposez de la permission de gestion des notes, mais le module Notes n’est pas encore intégré à cette interface.</p><div class="notice">La permission serveur est active ; aucune action n’est exposée tant que le module Notes n’est pas implémenté.</div></section>';
@@ -131,6 +134,19 @@
   async function loadStaffAccess() {
     try {
       access = await json("/api/admin/access");
+
+      if (!access?.authenticated) return false;
+
+      // The generic access endpoint is authoritative for resource permissions.
+      // Keep the existing user identity display in sync for Zone Staff as well.
+      try {
+        const me = await json("/api/auth/me");
+        const user = document.getElementById("user");
+        if (user) user.textContent = me.user?.global_name || me.user?.username || me.user?.id || "Utilisateur Discord";
+      } catch (error) {
+        console.warn("Identité utilisateur indisponible", error);
+      }
+
       return applyStaffAccess();
     } catch (error) {
       console.error("Zone staff access", error);
