@@ -355,7 +355,11 @@
     document.querySelector('[data-section="templates"]')?.addEventListener("click", () => setTimeout(load, 0));
     setTimeout(async () => {
       const staffOpened = await loadStaffAccess();
-      if (staffOpened && access?.permissions?.templates_manage) await load();
+      if (staffOpened && access?.permissions?.templates_manage) {
+        await load();
+      } else if (access?.access === "admin" || access?.access === "moderator") {
+        await load();
+      }
     }, 0);
   }
 
