@@ -3,6 +3,7 @@
 
   const BRAND_MARK = `<span class="lc-brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M0 0h32v32H0z" fill="#080808"/><path d="M0 0h32L0 32z" fill="#e10600"/></svg></span>`;
   const ZONES_MARK = `<span class="lc-zones-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h5v5H5zM14 5h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>`;
+  const ADMIN_ACCESS_URL = "https://wplace-commune-api-dev.mathieu-peter.workers.dev/api/admin/access";
 
   const style = document.createElement("style");
   style.id = "lc-visual-identity-clean";
@@ -44,8 +45,11 @@
       panel.appendChild(link);
       try {
         const options = typeof authFetchOptions === "function" ? authFetchOptions() : {credentials:"include",cache:"no-store"};
-        fetch(AUTH_ME_URL, options).then(r => r.ok ? r.json() : null).then(data => {
-          if (["admin","moderator"].includes(data?.access)) link.style.display = "inline-flex";
+        fetch(ADMIN_ACCESS_URL, options).then(r => r.ok ? r.json() : null).then(data => {
+          const canManageTemplates = data?.permissions?.templates_manage === true;
+          const canManageNotes = data?.permissions?.notes_manage === true;
+          const canAccessAdmin = ["admin","moderator"].includes(data?.access) || canManageTemplates || canManageNotes;
+          if (canAccessAdmin) link.style.display = "inline-flex";
         }).catch(() => {});
       } catch (_) {}
     }
