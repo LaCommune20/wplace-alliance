@@ -1,3 +1,5 @@
+import { getCurrentSessionAccess } from "./discord-role-model.js";
+
 async function runRadarScan(env, radarIdInput, options = {}) {
   const scanOptions = options && typeof options === "object" ? options : {};
 
@@ -4776,14 +4778,16 @@ function handleApplicationCommand(interaction, env) {
 
   const memberRoles = interaction.member?.roles || [];
 
-  const isAdmin =
-    memberRoles.includes(env.DISCORD_ADMIN_ROLE_ID);
+  const access = getCurrentSessionAccess(
+    memberRoles,
+    env,
+    interaction.member?.user?.id,
+    DEV_ZONE_ADMIN_USER_ID
+  );
 
-  const isModerator =
-    memberRoles.includes(env.DISCORD_MODERATOR_ROLE_ID);
-
-  const isZoneAdmin =
-    interaction.member?.user?.id === DEV_ZONE_ADMIN_USER_ID;
+  const isAdmin = access === "admin";
+  const isModerator = access === "moderator";
+  const isZoneAdmin = access === "zone_admin";
 
   // ------------------------------------------------------------
   // Autorisation — Admin
@@ -5149,17 +5153,12 @@ async function handleDiscordOAuthCallback(request, env) {
 
   const roles = Array.isArray(member.roles) ? member.roles : [];
 
-  const isAdmin = roles.includes(env.DISCORD_ADMIN_ROLE_ID);
-  const isModerator = roles.includes(env.DISCORD_MODERATOR_ROLE_ID);
-  const isZoneAdmin = discordUser.id === DEV_ZONE_ADMIN_USER_ID;
-
-  const access = isAdmin
-    ? "admin"
-    : isZoneAdmin
-      ? "zone_admin"
-      : isModerator
-        ? "moderator"
-        : "member";
+  const access = getCurrentSessionAccess(
+    roles,
+    env,
+    discordUser.id,
+    DEV_ZONE_ADMIN_USER_ID
+  );
 
   const now = Math.floor(Date.now() / 1000);
 
