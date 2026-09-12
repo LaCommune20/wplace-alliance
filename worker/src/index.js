@@ -4451,16 +4451,6 @@ if (adminRadarIdMatch && request.method === "DELETE") {
       }
 
       const roles = [...new Set(body.roles.map(value => String(value).trim()))];
-      const allowedRoles = new Set(["manager", "template_manager"]);
-      const invalidRoles = roles.filter(role => !allowedRoles.has(role));
-
-      if (invalidRoles.length > 0) {
-        return jsonAuth(request, {
-          error: "Rôle Zone Staff invalide",
-          invalid_roles: invalidRoles
-        }, 400, env);
-      }
-
       const member = await fetchDiscordGuildMember(discordUserId, env);
       if (!member?.user?.id) {
         await writeAdminLog(
