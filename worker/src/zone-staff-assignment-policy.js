@@ -1,5 +1,5 @@
 import {
-  getBusinessRoleForZoneStaffRole,
+  ZONE_STAFF_TO_DISCORD_BUSINESS_ROLE,
   isZoneStaffRole
 } from "./zone-staff-role-model.js";
 
@@ -18,22 +18,13 @@ export function getAssignableZoneStaffRoles(memberRoles, env) {
 
   const roles = [];
 
-  for (const [businessRole, envKey] of Object.entries(BUSINESS_ROLE_ENV_KEYS)) {
+  for (const [zoneStaffRole, businessRole] of Object.entries(ZONE_STAFF_TO_DISCORD_BUSINESS_ROLE)) {
+    const envKey = BUSINESS_ROLE_ENV_KEYS[businessRole];
     const discordRoleId = String(env?.[envKey] || "").trim();
-    if (!discordRoleId || !roleIds.has(discordRoleId)) continue;
-
-    const zoneStaffRole = Object.entries({
-      zoneManager: "manager",
-      templateManager: "template_manager",
-      ally: "ally"
-    }).find(([key]) => key === businessRole)?.[1];
-
-    if (zoneStaffRole && getBusinessRoleForZoneStaffRole(zoneStaffRole) === businessRole) {
-      roles.push(zoneStaffRole);
-    }
+    if (discordRoleId && roleIds.has(discordRoleId)) roles.push(zoneStaffRole);
   }
 
-  return [...new Set(roles)];
+  return roles;
 }
 
 export function validateZoneStaffAssignmentRoles(requestedRoles, memberRoles, env) {
