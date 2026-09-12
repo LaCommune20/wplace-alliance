@@ -72,13 +72,16 @@ export function getDiscordBusinessRoles(memberRoles, env) {
 export function getEffectiveBusinessRoles(memberRoles, env) {
   const roles = getDiscordBusinessRoles(memberRoles, env);
 
-  if (!roles.includes("ally") || roles.includes("communard")) {
+  if (!roles.includes("ally")) {
     return roles;
   }
 
-  const allyIndex = roles.indexOf("ally");
-  roles.splice(allyIndex, 0, "communard");
-  return roles;
+  // Normalize the inherited role before Ally. This also makes the result
+  // deterministic when Discord already contains both roles.
+  const effectiveRoles = roles.filter(role => role !== "communard");
+  const allyIndex = effectiveRoles.indexOf("ally");
+  effectiveRoles.splice(allyIndex, 0, "communard");
+  return effectiveRoles;
 }
 
 export function getCurrentSessionAccess(memberRoles, env, userId, devZoneAdminUserId) {
