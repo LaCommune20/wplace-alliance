@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   ZONE_STAFF_ROLES,
+  getBusinessRoleForZoneStaffRole,
   getZoneStaffRoleForBusinessRole,
   getZoneStaffRolesForBusinessRoles,
   isZoneStaffRole
@@ -22,6 +23,14 @@ test("business roles map to the expected zone staff role", () => {
   assert.equal(getZoneStaffRoleForBusinessRole("ally"), "ally");
   assert.equal(getZoneStaffRoleForBusinessRole("communard"), null);
   assert.equal(getZoneStaffRoleForBusinessRole("sympathisant"), null);
+});
+
+test("zone staff roles map back to the expected business role", () => {
+  assert.equal(getBusinessRoleForZoneStaffRole("manager"), "zoneManager");
+  assert.equal(getBusinessRoleForZoneStaffRole("template_manager"), "templateManager");
+  assert.equal(getBusinessRoleForZoneStaffRole("ally"), "ally");
+  assert.equal(getBusinessRoleForZoneStaffRole("moderator"), null);
+  assert.equal(getBusinessRoleForZoneStaffRole("admin"), null);
 });
 
 test("multiple business roles are deduplicated", () => {
