@@ -564,7 +564,7 @@ export default {
             FROM zone_staff zs
             INNER JOIN zones z ON z.id = zs.zone_id
             WHERE zs.discord_user_id = ?
-              AND zs.role IN ('manager', 'template_manager')
+              AND zs.role IN ('manager', 'template_manager', 'ally')
               AND z.status = 'active'
             ORDER BY zs.zone_id ASC, zs.role ASC
           `).bind(session.user.id).all();
@@ -574,11 +574,11 @@ export default {
 
             if (!Number.isInteger(zoneId)) continue;
 
-            if (row.role === "manager") {
+            if (row.role === "manager" || row.role === "ally") {
               notesZoneIds.push(zoneId);
             }
 
-            if (row.role === "template_manager") {
+            if (row.role === "template_manager" || row.role === "ally") {
               templateZoneIds.push(zoneId);
             }
           }
@@ -5050,7 +5050,11 @@ async function canManageZoneResource(db, session, zoneId, permission) {
         return hasZoneModeratorRole(db, zoneId, session.user.id);
       }
       if (session.access === "member") {
-        return hasZoneStaffRole(db, zoneId, session.user.id, "manager");
+        return (
+          await hasZoneStaffRole(db, zoneId, session.user.id, "manager")
+          ||
+          await hasZoneStaffRole(db, zoneId, session.user.id, "ally")
+        );
       }
       return false;
 
@@ -5059,7 +5063,11 @@ async function canManageZoneResource(db, session, zoneId, permission) {
         return hasZoneModeratorRole(db, zoneId, session.user.id);
       }
       if (session.access === "member") {
-        return hasZoneStaffRole(db, zoneId, session.user.id, "template_manager");
+        return (
+          await hasZoneStaffRole(db, zoneId, session.user.id, "template_manager")
+          ||
+          await hasZoneStaffRole(db, zoneId, session.user.id, "ally")
+        );
       }
       return false;
 
