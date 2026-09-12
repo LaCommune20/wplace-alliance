@@ -16,22 +16,24 @@ export function getAssignableZoneStaffRoles(memberRoles, env) {
       : []
   );
 
-  return Object.entries(BUSINESS_ROLE_ENV_KEYS)
-    .filter(([businessRole, envKey]) => {
-      const discordRoleId = String(env?.[envKey] || "").trim();
-      return Boolean(discordRoleId) && roleIds.has(discordRoleId) && Boolean(getBusinessRoleForZoneStaffRole(
-        Object.entries(BUSINESS_ROLE_ENV_KEYS).find(([, key]) => key === envKey)?.[0]
-      ));
-    })
-    .map(([businessRole]) => {
-      const role = Object.entries({
-        zoneManager: "manager",
-        templateManager: "template_manager",
-        ally: "ally"
-      }).find(([key]) => key === businessRole)?.[1];
-      return role || null;
-    })
-    .filter(Boolean);
+  const roles = [];
+
+  for (const [businessRole, envKey] of Object.entries(BUSINESS_ROLE_ENV_KEYS)) {
+    const discordRoleId = String(env?.[envKey] || "").trim();
+    if (!discordRoleId || !roleIds.has(discordRoleId)) continue;
+
+    const zoneStaffRole = Object.entries({
+      zoneManager: "manager",
+      templateManager: "template_manager",
+      ally: "ally"
+    }).find(([key]) => key === businessRole)?.[1];
+
+    if (zoneStaffRole && getBusinessRoleForZoneStaffRole(zoneStaffRole) === businessRole) {
+      roles.push(zoneStaffRole);
+    }
+  }
+
+  return [...new Set(roles)];
 }
 
 export function validateZoneStaffAssignmentRoles(requestedRoles, memberRoles, env) {
