@@ -62,6 +62,28 @@ export function getDiscordBusinessRoles(memberRoles, env) {
   return roles;
 }
 
+/**
+ * Return the effective business roles used by application permissions.
+ *
+ * Discord roles stay untouched: an Ally does not gain the Discord
+ * Communard role. In the application model, however, Ally inherits the
+ * Communard capability set, so an Ally is treated as Communard + Ally.
+ */
+export function getEffectiveBusinessRoles(memberRoles, env) {
+  const roles = getDiscordBusinessRoles(memberRoles, env);
+
+  if (!roles.includes("ally")) {
+    return roles;
+  }
+
+  // Normalize the inherited role before Ally. This also makes the result
+  // deterministic when Discord already contains both roles.
+  const effectiveRoles = roles.filter(role => role !== "communard");
+  const allyIndex = effectiveRoles.indexOf("ally");
+  effectiveRoles.splice(allyIndex, 0, "communard");
+  return effectiveRoles;
+}
+
 export function getCurrentSessionAccess(memberRoles, env, userId, devZoneAdminUserId) {
   const flags = getDiscordRoleFlags(memberRoles, env);
   const normalizedUserId = String(userId || "").trim();
