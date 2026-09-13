@@ -1,4 +1,5 @@
 import { getCurrentSessionAccess } from "./discord-role-model.js";
+import { validateZoneStaffAssignmentRoles } from "./zone-staff-assignment-policy.js";
 
 async function runRadarScan(env, radarIdInput, options = {}) {
   const scanOptions = options && typeof options === "object" ? options : {};
@@ -4450,16 +4451,6 @@ if (adminRadarIdMatch && request.method === "DELETE") {
       }
 
       const roles = [...new Set(body.roles.map(value => String(value).trim()))];
-      const allowedRoles = new Set(["manager", "template_manager"]);
-      const invalidRoles = roles.filter(role => !allowedRoles.has(role));
-
-      if (invalidRoles.length > 0) {
-        return jsonAuth(request, {
-          error: "Rôle Zone Staff invalide",
-          invalid_roles: invalidRoles
-        }, 400, env);
-      }
-
       const member = await fetchDiscordGuildMember(discordUserId, env);
       if (!member?.user?.id) {
         await writeAdminLog(
@@ -4475,6 +4466,34 @@ if (adminRadarIdMatch && request.method === "DELETE") {
         return jsonAuth(request, { error: "Utilisateur introuvable dans le serveur Discord" }, 404, env);
       }
 
+      const roleValidation = validateZoneStaffAssignmentRoles(
+        roles,
+        member.roles,
+        env
+      );
+
+      if (!roleValidation.ok) {
+        await writeAdminLog(
+          env,
+          session.user.id,
+          "zone_staff_assignment_update",
+          "zone_staff",
+          discordUserId,
+          "denied",
+          roleValidation.error,
+          {
+            zone_id: zoneId,
+            roles,
+            invalid_roles: roleValidation.invalidRoles || [],
+            unauthorized_roles: roleValidation.unauthorizedRoles || []
+          }
+        );
+        return jsonAuth(request, {
+          error: roleValidation.error,
+          invalid_roles: roleValidation.invalidRoles || [],
+          unauthorized_roles: roleValidation.unauthorizedRoles || []
+        }, roleValidation.status, env);
+      }
       const zone = await env.DB.prepare(`
         SELECT id, slug, name
         FROM zones
