@@ -242,15 +242,20 @@ export async function handleAdminNotesRequest(request, env, deps) {
       }
       let value = { level: current.level, content: current.content, position: current.position, duration_type: current.duration_type, expires_at: current.expires_at };
       const contentBody = { level: body?.level ?? current.level, content: body?.content ?? current.content, position: body?.position ?? current.position };
+      const contentValidation = validateNotePayload(contentBody, { partial: true });
+      if (!contentValidation.ok) return response(deps, request, env, { error: contentValidation.error }, contentValidation.status);
+      value = { ...value, ...contentValidation.value };
       if (Object.prototype.hasOwnProperty.call(body || {}, "duration_type")) {
-        contentBody.duration_type = body.duration_type;
-        contentBody.expires_at = body?.expires_at;
+        const durationBody = { duration_type: body.duration_type };
+        if (Object.prototype.hasOwnProperty.call(body || {}, "expires_at")) {
+          durationBody.expires_at = body.expires_at;
+        }
+        const durationValidation = validateNotePayload(durationBody, { partial: true });
+        if (!durationValidation.ok) return response(deps, request, env, { error: durationValidation.error }, durationValidation.status);
+        value = { ...value, ...durationValidation.value };
       } else if (Object.prototype.hasOwnProperty.call(body || {}, "expires_at")) {
         return response(deps, request, env, { error: "duration_type doit être fourni avec expires_at" }, 400);
       }
-      const validation = validateNotePayload(contentBody);
-      if (!validation.ok) return response(deps, request, env, { error: validation.error }, validation.status);
-      value = { ...value, ...validation.value };
       const status = body?.status == null ? current.status : String(body.status).trim().toLowerCase();
       if (!NOTE_MUTABLE_STATUSES.has(status)) return response(deps, request, env, { error: "Statut de Note invalide" }, 400);
       const now = new Date().toISOString();
