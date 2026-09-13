@@ -115,11 +115,10 @@
       button?.classList.add("active");
       section?.classList.add("active");
     } else if (canNotes) {
-      // Notes UI is intentionally not fabricated here; leave the user with a clear state.
-      const main = document.querySelector(".main");
-      if (main) {
-        main.innerHTML = '<section class="section active"><h2>Notes</h2><p>Vous disposez de la permission de gestion des notes, mais le module Notes n’est pas encore intégré à cette interface.</p><div class="notice">La permission serveur est active ; aucune action n’est exposée tant que le module Notes n’est pas implémenté.</div></section>';
-      }
+      const button = document.querySelector('[data-section="notes"]');
+      const section = document.getElementById("notes");
+      button?.classList.add("active");
+      section?.classList.add("active");
     } else {
       return false;
     }
