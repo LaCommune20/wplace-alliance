@@ -26,6 +26,28 @@ Le Cron appelle `scheduled()` puis `runRadarScheduler()`.
 Les secrets Discord/OAuth et autres variables sensibles ne sont pas committés.
 Ils restent configurés dans Cloudflare.
 
+### Rôles Discord DEV — Phase 2
+
+Les IDs de rôles sont des identifiants publics et peuvent être documentés. Ils ne remplacent pas les contrôles d'autorisation côté Worker/D1.
+
+Variables déjà utilisées :
+
+- `DISCORD_ADMIN_ROLE_ID`
+- `DISCORD_MODERATOR_ROLE_ID`
+
+Variables métier préparées pour le modèle V1 :
+
+- `DISCORD_ZONE_MANAGER_ROLE_ID`
+- `DISCORD_TEMPLATE_MANAGER_ROLE_ID`
+- `DISCORD_ALLY_ROLE_ID`
+- `DISCORD_COMMUNARD_ROLE_ID`
+
+Le rôle `Sympathisant` ne nécessite pas de variable de rôle pour les permissions d'administration : l'absence de permission est le comportement par défaut.
+
+Les valeurs des variables d'environnement restent hors Git et doivent être configurées dans Cloudflare DEV.
+
+La portée par zone reste déterminée côté Worker/D1 : un rôle Discord métier ne donne pas automatiquement accès à toutes les zones.
+
 ### Limites connues du Worker DEV
 
 - `status: "failed"` peut actuellement être retourné avec HTTP 200 ;
