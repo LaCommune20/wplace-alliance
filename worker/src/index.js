@@ -1,3 +1,6 @@
+import { getCurrentSessionAccess } from "./discord-role-model.js";
+import { validateZoneStaffAssignmentRoles } from "./zone-staff-assignment-policy.js";
+
 async function runRadarScan(env, radarIdInput, options = {}) {
   const scanOptions = options && typeof options === "object" ? options : {};
 
@@ -561,7 +564,7 @@ export default {
             FROM zone_staff zs
             INNER JOIN zones z ON z.id = zs.zone_id
             WHERE zs.discord_user_id = ?
-              AND zs.role IN ('manager', 'template_manager')
+              AND zs.role IN ('manager', 'template_manager', 'ally')
               AND z.status = 'active'
             ORDER BY zs.zone_id ASC, zs.role ASC
           `).bind(session.user.id).all();
@@ -571,11 +574,11 @@ export default {
 
             if (!Number.isInteger(zoneId)) continue;
 
-            if (row.role === "manager") {
+            if (row.role === "manager" || row.role === "ally") {
               notesZoneIds.push(zoneId);
             }
 
-            if (row.role === "template_manager") {
+            if (row.role === "template_manager" || row.role === "ally") {
               templateZoneIds.push(zoneId);
             }
           }
@@ -4448,16 +4451,6 @@ if (adminRadarIdMatch && request.method === "DELETE") {
       }
 
       const roles = [...new Set(body.roles.map(value => String(value).trim()))];
-      const allowedRoles = new Set(["manager", "template_manager"]);
-      const invalidRoles = roles.filter(role => !allowedRoles.has(role));
-
-      if (invalidRoles.length > 0) {
-        return jsonAuth(request, {
-          error: "Rôle Zone Staff invalide",
-          invalid_roles: invalidRoles
-        }, 400, env);
-      }
-
       const member = await fetchDiscordGuildMember(discordUserId, env);
       if (!member?.user?.id) {
         await writeAdminLog(
@@ -4473,6 +4466,34 @@ if (adminRadarIdMatch && request.method === "DELETE") {
         return jsonAuth(request, { error: "Utilisateur introuvable dans le serveur Discord" }, 404, env);
       }
 
+      const roleValidation = validateZoneStaffAssignmentRoles(
+        roles,
+        member.roles,
+        env
+      );
+
+      if (!roleValidation.ok) {
+        await writeAdminLog(
+          env,
+          session.user.id,
+          "zone_staff_assignment_update",
+          "zone_staff",
+          discordUserId,
+          "denied",
+          roleValidation.error,
+          {
+            zone_id: zoneId,
+            roles,
+            invalid_roles: roleValidation.invalidRoles || [],
+            unauthorized_roles: roleValidation.unauthorizedRoles || []
+          }
+        );
+        return jsonAuth(request, {
+          error: roleValidation.error,
+          invalid_roles: roleValidation.invalidRoles || [],
+          unauthorized_roles: roleValidation.unauthorizedRoles || []
+        }, roleValidation.status, env);
+      }
       const zone = await env.DB.prepare(`
         SELECT id, slug, name
         FROM zones
@@ -4776,14 +4797,16 @@ function handleApplicationCommand(interaction, env) {
 
   const memberRoles = interaction.member?.roles || [];
 
-  const isAdmin =
-    memberRoles.includes(env.DISCORD_ADMIN_ROLE_ID);
+  const access = getCurrentSessionAccess(
+    memberRoles,
+    env,
+    interaction.member?.user?.id,
+    DEV_ZONE_ADMIN_USER_ID
+  );
 
-  const isModerator =
-    memberRoles.includes(env.DISCORD_MODERATOR_ROLE_ID);
-
-  const isZoneAdmin =
-    interaction.member?.user?.id === DEV_ZONE_ADMIN_USER_ID;
+  const isAdmin = access === "admin";
+  const isModerator = access === "moderator";
+  const isZoneAdmin = access === "zone_admin";
 
   // ------------------------------------------------------------
   // Autorisation — Admin
@@ -5027,7 +5050,11 @@ async function canManageZoneResource(db, session, zoneId, permission) {
         return hasZoneModeratorRole(db, zoneId, session.user.id);
       }
       if (session.access === "member") {
-        return hasZoneStaffRole(db, zoneId, session.user.id, "manager");
+        return (
+          await hasZoneStaffRole(db, zoneId, session.user.id, "manager")
+          ||
+          await hasZoneStaffRole(db, zoneId, session.user.id, "ally")
+        );
       }
       return false;
 
@@ -5036,7 +5063,11 @@ async function canManageZoneResource(db, session, zoneId, permission) {
         return hasZoneModeratorRole(db, zoneId, session.user.id);
       }
       if (session.access === "member") {
-        return hasZoneStaffRole(db, zoneId, session.user.id, "template_manager");
+        return (
+          await hasZoneStaffRole(db, zoneId, session.user.id, "template_manager")
+          ||
+          await hasZoneStaffRole(db, zoneId, session.user.id, "ally")
+        );
       }
       return false;
 
@@ -5149,17 +5180,12 @@ async function handleDiscordOAuthCallback(request, env) {
 
   const roles = Array.isArray(member.roles) ? member.roles : [];
 
-  const isAdmin = roles.includes(env.DISCORD_ADMIN_ROLE_ID);
-  const isModerator = roles.includes(env.DISCORD_MODERATOR_ROLE_ID);
-  const isZoneAdmin = discordUser.id === DEV_ZONE_ADMIN_USER_ID;
-
-  const access = isAdmin
-    ? "admin"
-    : isZoneAdmin
-      ? "zone_admin"
-      : isModerator
-        ? "moderator"
-        : "member";
+  const access = getCurrentSessionAccess(
+    roles,
+    env,
+    discordUser.id,
+    DEV_ZONE_ADMIN_USER_ID
+  );
 
   const now = Math.floor(Date.now() / 1000);
 
