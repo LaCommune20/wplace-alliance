@@ -1,5 +1,6 @@
 import { getCurrentSessionAccess } from "./discord-role-model.js";
 import { validateZoneStaffAssignmentRoles } from "./zone-staff-assignment-policy.js";
+import { handleAdminNotesRequest } from "./notes-api.js";
 
 async function runRadarScan(env, radarIdInput, options = {}) {
   const scanOptions = options && typeof options === "object" ? options : {};
@@ -478,6 +479,15 @@ export default {
     if (request.method === "OPTIONS") {
       return corsPreflight(request, env);
     }
+
+    const notesResponse = await handleAdminNotesRequest(request, env, {
+      requireMember,
+      canManageNotes,
+      writeAdminLog,
+      jsonAuth
+    });
+
+    if (notesResponse) return notesResponse;
 
     // ------------------------------------------------------------
     // AUTHENTIFICATION DISCORD
