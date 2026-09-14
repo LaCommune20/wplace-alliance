@@ -122,9 +122,9 @@
           "information", NOTE_LEVEL_COLORS.information,
           NOTE_LEVEL_COLORS.information
         ],
-        "circle-radius": 9,
-        "circle-opacity": 0.22,
-        "circle-blur": 0.55
+        "circle-radius": 10,
+        "circle-opacity": 0.32,
+        "circle-blur": 0.45
       }
     }, map.getLayer(NOTES_LAYER_ID) ? NOTES_LAYER_ID : undefined);
   }
@@ -152,8 +152,8 @@
       }
       const progress = ((now - startedAt) % duration) / duration;
       const wave = (Math.sin(progress * Math.PI * 2 - Math.PI / 2) + 1) / 2;
-      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-radius", 8 + wave * 9);
-      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-opacity", 0.26 - wave * 0.20);
+      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-radius", 9 + wave * 13);
+      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-opacity", 0.32 - wave * 0.28);
       notePulseFrame = requestAnimationFrame(animate);
     };
     notePulseFrame = requestAnimationFrame(animate);
@@ -169,13 +169,33 @@
     if (!candidates.length) return;
 
     const startedAt = performance.now();
-    const duration = 550;
+    const duration = 1600;
+    const keyframes = [
+      [0.00, -25],
+      [0.14, 8],
+      [0.28, -5],
+      [0.42, 4],
+      [0.56, -3],
+      [0.70, 2],
+      [0.84, -1],
+      [1.00, 0]
+    ];
     const animate = now => {
       const progress = Math.min(1, (now - startedAt) / duration);
-      const eased = 1 - Math.pow(1 - progress, 3);
+      let rotation = 0;
+      for (let index = 1; index < keyframes.length; index++) {
+        const [endProgress, endRotation] = keyframes[index];
+        if (progress <= endProgress) {
+          const [startProgress, startRotation] = keyframes[index - 1];
+          const localProgress = (progress - startProgress) / (endProgress - startProgress);
+          const eased = localProgress * localProgress * (3 - 2 * localProgress);
+          rotation = startRotation + (endRotation - startRotation) * eased;
+          break;
+        }
+      }
       candidates.forEach(id => {
         if (map.getSource(NOTES_SOURCE_ID)) {
-          map.setFeatureState({ source: NOTES_SOURCE_ID, id }, { rotation: -28 * (1 - eased) });
+          map.setFeatureState({ source: NOTES_SOURCE_ID, id }, { rotation });
         }
       });
       if (progress < 1) requestAnimationFrame(animate);
