@@ -1,3 +1,5 @@
+import { hasCurrentZoneStaffCapability } from "./current-zone-staff-policy.js";
+
 const NOTE_LEVELS = new Set(["information", "watch", "important"]);
 const NOTE_DURATIONS = new Set(["permanent", "1h", "6h", "24h", "3d", "7d", "custom"]);
 const NOTE_MUTABLE_STATUSES = new Set(["active", "archived"]);
@@ -117,6 +119,16 @@ async function getNote(db, noteId) {
   return db.prepare(`${noteSelectSql()} WHERE n.id = ? LIMIT 1`).bind(noteId).first();
 }
 
+async function canManageNotesNow(env, deps, session, zoneId) {
+  if (session.access !== "member") {
+    return deps.canManageNotes(env.DB, session, zoneId);
+  }
+  if (!(await hasCurrentZoneStaffCapability(env, session.user.id, zoneId, "notes_manage"))) {
+    return false;
+  }
+  return deps.canManageNotes(env.DB, session, zoneId);
+}
+
 async function log(env, deps, actorId, action, targetId, result, reason, metadata = {}) {
   try {
     await deps.writeAdminLog(env, actorId, action, "note", targetId, result, reason, metadata);
@@ -141,7 +153,7 @@ export async function handleAdminNotesRequest(request, env, deps) {
     const zoneId = requestedZoneId == null ? null : parsePositiveInteger(requestedZoneId);
     if (requestedZoneId != null && zoneId == null) return response(deps, request, env, { error: "zone_id invalide" }, 400);
     try {
-      if (zoneId != null && !(await deps.canManageNotes(env.DB, session, zoneId))) {
+      if (zoneId != null && !(await canManageNotesNow(env, deps, session, zoneId))) {
         await log(env, deps, session.user.id, "note_list", zoneId, "denied", "Zone non attribuée", { zone_id: zoneId });
         return response(deps, request, env, { error: "Cette zone ne vous est pas attribuée" }, 403);
       }
@@ -164,7 +176,7 @@ export async function handleAdminNotesRequest(request, env, deps) {
         const allowedZoneIds = [];
         for (const row of candidates.results || []) {
           const candidateZoneId = Number(row.id);
-          if (await deps.canManageNotes(env.DB, session, candidateZoneId)) allowedZoneIds.push(candidateZoneId);
+          if (await canManageNotesNow(env, deps, session, candidateZoneId)) allowedZoneIds.push(candidateZoneId);
         }
         if (allowedZoneIds.length === 0) return response(deps, request, env, { ok: true, notes: [] }, 200);
         const placeholders = allowedZoneIds.map(() => "?").join(",");
@@ -184,7 +196,7 @@ export async function handleAdminNotesRequest(request, env, deps) {
     try {
       const note = await getNote(env.DB, noteId);
       if (!note) return response(deps, request, env, { error: "Note introuvable" }, 404);
-      if (!(await deps.canManageNotes(env.DB, session, note.zone_id))) {
+      if (!(await canManageNotesNow(env, deps, session, note.zone_id))) {
         await log(env, deps, session.user.id, "note_read", noteId, "denied", "Zone non attribuée", { zone_id: Number(note.zone_id) });
         return response(deps, request, env, { error: "Cette zone ne vous est pas attribuée" }, 403);
       }
@@ -205,7 +217,7 @@ export async function handleAdminNotesRequest(request, env, deps) {
       const zone = await getZone(env.DB, zoneId);
       if (!zone) return response(deps, request, env, { error: "Zone introuvable" }, 404);
       if (zone.status !== "active") return response(deps, request, env, { error: "La zone doit être active" }, 400);
-      if (!(await deps.canManageNotes(env.DB, session, zoneId))) {
+      if (!(await canManageNotesNow(env, deps, session, zoneId))) {
         await log(env, deps, session.user.id, "note_create", zoneId, "denied", "Zone non attribuée", { zone_id: zoneId });
         return response(deps, request, env, { error: "Cette zone ne vous est pas attribuée" }, 403);
       }
@@ -236,7 +248,7 @@ export async function handleAdminNotesRequest(request, env, deps) {
     try {
       const current = await getNote(env.DB, noteId);
       if (!current) return response(deps, request, env, { error: "Note introuvable" }, 404);
-      if (!(await deps.canManageNotes(env.DB, session, current.zone_id))) {
+      if (!(await canManageNotesNow(env, deps, session, current.zone_id))) {
         await log(env, deps, session.user.id, "note_update", noteId, "denied", "Zone non attribuée", { zone_id: Number(current.zone_id) });
         return response(deps, request, env, { error: "Cette zone ne vous est pas attribuée" }, 403);
       }
@@ -278,7 +290,7 @@ export async function handleAdminNotesRequest(request, env, deps) {
     try {
       const current = await getNote(env.DB, noteId);
       if (!current) return response(deps, request, env, { error: "Note introuvable" }, 404);
-      if (!(await deps.canManageNotes(env.DB, session, current.zone_id))) {
+      if (!(await canManageNotesNow(env, deps, session, current.zone_id))) {
         await log(env, deps, session.user.id, "note_archive", noteId, "denied", "Zone non attribuée", { zone_id: Number(current.zone_id) });
         return response(deps, request, env, { error: "Cette zone ne vous est pas attribuée" }, 403);
       }
