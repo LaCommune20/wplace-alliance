@@ -1,14 +1,21 @@
 (() => {
   const NOTES_MAP_API_URL = ZONES_API_URL.replace(/\/zones$/, "/notes");
   const NOTES_SOURCE_ID = "alliance-notes";
+  const NOTES_PULSE_LAYER_ID = "alliance-notes-pulse";
   const NOTES_LAYER_ID = "alliance-notes-points";
   const NOTES_ICON_IDS = {
     information: "alliance-notes-pin-information",
     watch: "alliance-notes-pin-watch",
     important: "alliance-notes-pin-important"
   };
+  const NOTE_LEVEL_COLORS = {
+    information: "#3498db",
+    watch: "#f1c40f",
+    important: "#e74c3c"
+  };
   let loadedNotes = [];
   let zoneSlugsById = new Map();
+  let notePulseFrame = null;
 
   function ensureNotesPopupStyles() {
     if (document.getElementById("lc-notes-popup-style")) return;
@@ -40,17 +47,19 @@
         .filter(note => note && note.position)
         .map(note => ({
           type: "Feature",
+          id: Number(note.id),
           properties: {
             id: note.id,
             zone_id: note.zone_id,
             zone_name: note.zone_name || "",
             level: note.level || "information",
             content: note.content || "",
-            expires_at: note.expires_at || null
+            expires_at: note.expires_at || null,
+            rotation: 0
           },
           geometry: { type: "Point", coordinates: [Number(note.position.lng), Number(note.position.lat)] }
         }))
-        .filter(feature => Number.isFinite(feature.geometry.coordinates[0]) && Number.isFinite(feature.geometry.coordinates[1]))
+        .filter(feature => Number.isFinite(feature.geometry.coordinates[0]) && Number.isFinite(feature.geometry.coordinates[1]) && Number.isFinite(feature.id))
     };
   }
 
@@ -87,8 +96,7 @@
   function ensureNotesIcons() {
     const missing = Object.entries(NOTES_ICON_IDS).filter(([, id]) => !map.hasImage(id));
     if (!missing.length) return;
-    const colors = { information: "#3498db", watch: "#f1c40f", important: "#e74c3c" };
-    for (const [level, id] of missing) map.addImage(id, createPinImage(colors[level]), { pixelRatio: 2 });
+    for (const [level, id] of missing) map.addImage(id, createPinImage(NOTE_LEVEL_COLORS[level]), { pixelRatio: 2 });
   }
 
   function getVisibleNotes() {
@@ -99,6 +107,126 @@
     });
   }
 
+  function ensureNotesPulseLayer() {
+    if (map.getLayer(NOTES_PULSE_LAYER_ID)) return;
+    if (!map.getSource(NOTES_SOURCE_ID)) return;
+    map.addLayer({
+      id: NOTES_PULSE_LAYER_ID,
+      type: "circle",
+      source: NOTES_SOURCE_ID,
+      paint: {
+        "circle-color": [
+          "match",
+          ["get", "level"],
+          "important", NOTE_LEVEL_COLORS.important,
+          "watch", NOTE_LEVEL_COLORS.watch,
+          "information", NOTE_LEVEL_COLORS.information,
+          NOTE_LEVEL_COLORS.information
+        ],
+        "circle-radius": 12,
+        "circle-opacity": 0.46,
+        "circle-blur": 0.35
+      }
+    }, map.getLayer(NOTES_LAYER_ID) ? NOTES_LAYER_ID : undefined);
+  }
+
+  function setupNotesWPlaceOrderListener() {
+    if (map.__lcNotesWPlaceOrderBound) return;
+    map.__lcNotesWPlaceOrderBound = true;
+    map.on("sourcedata", event => {
+      const source = event.source;
+      if (source?.type !== "image" || typeof source.url !== "string") return;
+      if (!source.url.startsWith(WPLACE_PROXY + "/tile/")) return;
+      if (map.getLayer(NOTES_PULSE_LAYER_ID)) map.moveLayer(NOTES_PULSE_LAYER_ID);
+      if (map.getLayer(NOTES_LAYER_ID)) map.moveLayer(NOTES_LAYER_ID);
+    });
+  }
+
+  function startNotesPulseAnimation() {
+    if (notePulseFrame != null) return;
+    const startedAt = performance.now();
+    const duration = 2200;
+    const animate = now => {
+      if (!map.getLayer(NOTES_PULSE_LAYER_ID)) {
+        notePulseFrame = null;
+        return;
+      }
+      const progress = ((now - startedAt) % duration) / duration;
+      const wave = (Math.sin(progress * Math.PI * 2 - Math.PI / 2) + 1) / 2;
+      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-radius", 10 + wave * 18);
+      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-opacity", 0.46 - wave * 0.38);
+      notePulseFrame = requestAnimationFrame(animate);
+    };
+    notePulseFrame = requestAnimationFrame(animate);
+  }
+
+  function animateNewNotePins(data) {
+    if (!map.getLayer(NOTES_LAYER_ID)) return;
+    const features = Array.isArray(data?.features) ? data.features : [];
+    if (!features.length) return;
+    if (!map.__lcAnimatedNoteIds) map.__lcAnimatedNoteIds = new Set();
+    const candidates = features
+      .map(feature => Number(feature.id))
+      .filter(id => Number.isFinite(id) && !map.__lcAnimatedNoteIds.has(id));
+    candidates.forEach(id => map.__lcAnimatedNoteIds.add(id));
+    if (!candidates.length) return;
+
+    const featureById = new Map(features.map(feature => [Number(feature.id), feature]));
+    const duration = 1800;
+    const interval = 3000;
+    const cycles = 3;
+    const keyframes = [
+      [0.00, -38],
+      [0.14, 12],
+      [0.28, -8],
+      [0.42, 6],
+      [0.56, -4],
+      [0.70, 3],
+      [0.84, -1.5],
+      [1.00, 0]
+    ];
+    const source = map.getSource(NOTES_SOURCE_ID);
+    let cycle = 0;
+    let intervalTimer = null;
+
+    const runCycle = () => {
+      const startedAt = performance.now();
+      const animate = now => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        let rotation = 0;
+        for (let index = 1; index < keyframes.length; index++) {
+          const [endProgress, endRotation] = keyframes[index];
+          if (progress <= endProgress) {
+            const [startProgress, startRotation] = keyframes[index - 1];
+            const localProgress = (progress - startProgress) / (endProgress - startProgress);
+            const eased = localProgress * localProgress * (3 - 2 * localProgress);
+            rotation = startRotation + (endRotation - startRotation) * eased;
+            break;
+          }
+        }
+        candidates.forEach(id => {
+          const feature = featureById.get(id);
+          if (feature) feature.properties.rotation = rotation;
+        });
+        if (source) source.setData(data);
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+          return;
+        }
+        candidates.forEach(id => {
+          const feature = featureById.get(id);
+          if (feature) feature.properties.rotation = 0;
+        });
+        if (source) source.setData(data);
+        cycle += 1;
+        if (cycle < cycles) intervalTimer = setTimeout(runCycle, interval);
+      };
+      requestAnimationFrame(animate);
+    };
+
+    runCycle();
+  }
+
   async function renderNotes(notes) {
     const data = notesToGeoJSON(notes);
     const source = map.getSource(NOTES_SOURCE_ID);
@@ -107,10 +235,13 @@
       if (!map.isStyleLoaded()) return;
       map.addSource(NOTES_SOURCE_ID, { type: "geojson", data });
     }
+
+    ensureNotesPulseLayer();
+    ensureNotesIcons();
+    setupNotesWPlaceOrderListener();
     const existingLayer = map.getLayer(NOTES_LAYER_ID);
     if (existingLayer && existingLayer.type !== "symbol") map.removeLayer(NOTES_LAYER_ID);
     if (!map.getLayer(NOTES_LAYER_ID)) {
-      ensureNotesIcons();
       map.addLayer({
         id: NOTES_LAYER_ID,
         type: "symbol",
@@ -118,13 +249,17 @@
         layout: {
           "icon-image": ["match", ["get", "level"], "important", NOTES_ICON_IDS.important, "watch", NOTES_ICON_IDS.watch, "information", NOTES_ICON_IDS.information, NOTES_ICON_IDS.information],
           "icon-anchor": "bottom",
+          "icon-rotation-alignment": "viewport",
           "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.7, 9, 0.9, 13, 1.15],
+          "icon-rotate": ["coalesce", ["get", "rotation"], 0],
           "icon-allow-overlap": true,
           "icon-ignore-placement": true
         }
       });
     }
     setupNoteInteractions();
+    startNotesPulseAnimation();
+    animateNewNotePins(data);
   }
 
   function updateNotesMapFilter() {
@@ -168,7 +303,7 @@
         if (!feature) return;
         const properties = feature.properties || {};
         const levelLabels = { information: "Information", watch: "Veille", important: "Important" };
-        const levelColors = { information: "#3498db", watch: "#f1c40f", important: "#e74c3c" };
+        const levelColors = NOTE_LEVEL_COLORS;
         const color = levelColors[properties.level] || levelColors.information;
         const container = document.createElement("div");
         container.className = "lc-note-popup";
