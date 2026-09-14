@@ -54,7 +54,8 @@
             zone_name: note.zone_name || "",
             level: note.level || "information",
             content: note.content || "",
-            expires_at: note.expires_at || null
+            expires_at: note.expires_at || null,
+            rotation: 0
           },
           geometry: { type: "Point", coordinates: [Number(note.position.lng), Number(note.position.lat)] }
         }))
@@ -122,9 +123,9 @@
           "information", NOTE_LEVEL_COLORS.information,
           NOTE_LEVEL_COLORS.information
         ],
-        "circle-radius": 10,
-        "circle-opacity": 0.32,
-        "circle-blur": 0.45
+        "circle-radius": 12,
+        "circle-opacity": 0.46,
+        "circle-blur": 0.35
       }
     }, map.getLayer(NOTES_LAYER_ID) ? NOTES_LAYER_ID : undefined);
   }
@@ -152,34 +153,38 @@
       }
       const progress = ((now - startedAt) % duration) / duration;
       const wave = (Math.sin(progress * Math.PI * 2 - Math.PI / 2) + 1) / 2;
-      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-radius", 9 + wave * 13);
-      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-opacity", 0.32 - wave * 0.28);
+      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-radius", 10 + wave * 18);
+      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-opacity", 0.46 - wave * 0.38);
       notePulseFrame = requestAnimationFrame(animate);
     };
     notePulseFrame = requestAnimationFrame(animate);
   }
 
-  function animateNewNotePins(notes) {
+  function animateNewNotePins(data) {
     if (!map.getLayer(NOTES_LAYER_ID)) return;
+    const features = Array.isArray(data?.features) ? data.features : [];
+    if (!features.length) return;
     if (!map.__lcAnimatedNoteIds) map.__lcAnimatedNoteIds = new Set();
-    const candidates = notes
-      .map(note => Number(note.id))
+    const candidates = features
+      .map(feature => Number(feature.id))
       .filter(id => Number.isFinite(id) && !map.__lcAnimatedNoteIds.has(id));
     candidates.forEach(id => map.__lcAnimatedNoteIds.add(id));
     if (!candidates.length) return;
 
+    const featureById = new Map(features.map(feature => [Number(feature.id), feature]));
     const startedAt = performance.now();
-    const duration = 1600;
+    const duration = 1800;
     const keyframes = [
-      [0.00, -25],
-      [0.14, 8],
-      [0.28, -5],
-      [0.42, 4],
-      [0.56, -3],
-      [0.70, 2],
-      [0.84, -1],
+      [0.00, -38],
+      [0.14, 12],
+      [0.28, -8],
+      [0.42, 6],
+      [0.56, -4],
+      [0.70, 3],
+      [0.84, -1.5],
       [1.00, 0]
     ];
+    const source = map.getSource(NOTES_SOURCE_ID);
     const animate = now => {
       const progress = Math.min(1, (now - startedAt) / duration);
       let rotation = 0;
@@ -194,12 +199,18 @@
         }
       }
       candidates.forEach(id => {
-        if (map.getSource(NOTES_SOURCE_ID)) {
-          map.setFeatureState({ source: NOTES_SOURCE_ID, id }, { rotation });
-        }
+        const feature = featureById.get(id);
+        if (feature) feature.properties.rotation = rotation;
       });
+      if (source) source.setData(data);
       if (progress < 1) requestAnimationFrame(animate);
-      else candidates.forEach(id => map.setFeatureState({ source: NOTES_SOURCE_ID, id }, { rotation: 0 }));
+      else {
+        candidates.forEach(id => {
+          const feature = featureById.get(id);
+          if (feature) feature.properties.rotation = 0;
+        });
+        if (source) source.setData(data);
+      }
     };
     requestAnimationFrame(animate);
   }
@@ -228,7 +239,7 @@
           "icon-anchor": "bottom",
           "icon-rotation-alignment": "viewport",
           "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.7, 9, 0.9, 13, 1.15],
-          "icon-rotate": ["coalesce", ["feature-state", "rotation"], 0],
+          "icon-rotate": ["coalesce", ["get", "rotation"], 0],
           "icon-allow-overlap": true,
           "icon-ignore-placement": true
         }
@@ -236,7 +247,7 @@
     }
     setupNoteInteractions();
     startNotesPulseAnimation();
-    animateNewNotePins(notes);
+    animateNewNotePins(data);
   }
 
   function updateNotesMapFilter() {
