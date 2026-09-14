@@ -31,6 +31,9 @@
   let filterLevel = "";
   let filterStatus = "active";
   let editingId = null;
+  let notePlacementMap = null;
+  let notePlacementMarker = null;
+  let notePlacementAssetsPromise = null;
 
   function authOptions(extra = {}) {
     const token = sessionStorage.getItem("wplace_session");
@@ -404,6 +407,131 @@
     }
   }
 
+  function loadMapLibreAssets() {
+    if (window.maplibregl) return Promise.resolve(window.maplibregl);
+    if (notePlacementAssetsPromise) return notePlacementAssetsPromise;
+
+    notePlacementAssetsPromise = new Promise((resolve, reject) => {
+      const cssId = "lc-notes-maplibre-css";
+      const scriptId = "lc-notes-maplibre-js";
+      if (!document.getElementById(cssId)) {
+        const link = document.createElement("link");
+        link.id = cssId;
+        link.rel = "stylesheet";
+        link.href = "https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css";
+        document.head.appendChild(link);
+      }
+      const existing = document.getElementById(scriptId);
+      if (existing) {
+        existing.addEventListener("load", () => resolve(window.maplibregl), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Impossible de charger MapLibre")), { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js";
+      script.onload = () => resolve(window.maplibregl);
+      script.onerror = () => reject(new Error("Impossible de charger MapLibre"));
+      document.body.appendChild(script);
+    });
+
+    return notePlacementAssetsPromise;
+  }
+
+  function closePlacementPicker() {
+    if (notePlacementMap) {
+      notePlacementMap.remove();
+      notePlacementMap = null;
+    }
+    notePlacementMarker = null;
+    document.getElementById("notes-placement-overlay")?.remove();
+  }
+
+  async function openPlacementPicker() {
+    if (document.getElementById("notes-placement-overlay")) return;
+
+    const overlay = document.createElement("div");
+    overlay.id = "notes-placement-overlay";
+    overlay.innerHTML = `
+      <div class="notes-placement-card" role="dialog" aria-modal="true" aria-label="Placement d'une Note">
+        <div class="notes-placement-head">
+          <div>
+            <strong>Placer la Note sur la carte</strong>
+            <span>Cliquez sur la carte pour choisir précisément la position.</span>
+          </div>
+          <button id="notes-placement-close" type="button" class="refresh">Fermer</button>
+        </div>
+        <div id="notes-placement-map" class="notes-placement-map"></div>
+        <div class="notes-placement-foot">
+          <div id="notes-placement-coordinates" class="notes-placement-coordinates">Aucun point sélectionné.</div>
+          <div class="notes-placement-actions">
+            <button id="notes-placement-cancel" type="button" class="refresh">Annuler</button>
+            <button id="notes-placement-use" type="button" class="refresh" disabled>Utiliser ce point</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    document.getElementById("notes-placement-close")?.addEventListener("click", closePlacementPicker);
+    document.getElementById("notes-placement-cancel")?.addEventListener("click", closePlacementPicker);
+
+    try {
+      const maplibregl = await loadMapLibreAssets();
+      if (!document.getElementById("notes-placement-overlay")) return;
+
+      const currentLat = Number(document.getElementById("note-lat")?.value);
+      const currentLng = Number(document.getElementById("note-lng")?.value);
+      const hasCurrent = Number.isFinite(currentLat) && Number.isFinite(currentLng) &&
+        currentLat >= -90 && currentLat <= 90 && currentLng >= -180 && currentLng <= 180;
+      const initial = hasCurrent ? [currentLng, currentLat] : [5.93, 43.12];
+
+      notePlacementMap = new maplibregl.Map({
+        container: "notes-placement-map",
+        style: "https://tiles.openfreemap.org/styles/liberty",
+        center: initial,
+        zoom: hasCurrent ? 13 : 9,
+        minZoom: 1,
+        maxZoom: 18,
+        attributionControl: true
+      });
+      notePlacementMap.addControl(new maplibregl.NavigationControl(), "top-right");
+
+      let pending = hasCurrent ? { lat: currentLat, lng: currentLng } : null;
+      const coordinates = document.getElementById("notes-placement-coordinates");
+      const useButton = document.getElementById("notes-placement-use");
+
+      const setPending = (lngLat, marker = true) => {
+        const lat = Number(lngLat.lat);
+        const lng = Number(lngLat.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        pending = { lat, lng };
+        coordinates.textContent = "Latitude " + lat.toFixed(6) + " · Longitude " + lng.toFixed(6);
+        useButton.disabled = false;
+        if (marker) {
+          if (notePlacementMarker) notePlacementMarker.setLngLat([lng, lat]);
+          else notePlacementMarker = new maplibregl.Marker().setLngLat([lng, lat]).addTo(notePlacementMap);
+        }
+      };
+
+      if (pending) setPending({ lat: currentLat, lng: currentLng });
+
+      notePlacementMap.on("click", event => setPending(event.lngLat));
+      useButton.addEventListener("click", () => {
+        if (!pending) return;
+        setFormValue("note-lat", pending.lat.toFixed(6));
+        setFormValue("note-lng", pending.lng.toFixed(6));
+        closePlacementPicker();
+        setStatus("Position de la Note sélectionnée sur la carte.");
+      });
+      notePlacementMap.once("load", () => notePlacementMap?.resize());
+    } catch (error) {
+      console.error("Notes placement map", error);
+      closePlacementPicker();
+      setStatus("Impossible de charger la carte de placement : " + error.message, true);
+    }
+  }
+
   async function loadAccessAndZones() {
     access = await json("/api/admin/access");
     const noteZoneIds = new Set((access?.zones?.notes_manage || []).map(String));
@@ -441,9 +569,32 @@
       .notes-textarea{min-height:100px;resize:vertical}
       .notes-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:12px}
       #notes-state{margin-top:9px}
-      @media(max-width:700px){.notes-toolbar{grid-template-columns:1fr}.notes-form-grid{grid-template-columns:1fr}.notes-form-grid .full{grid-column:auto}.notes-row .template-state{display:none}}
+      .notes-map-place-button{width:100%;margin-top:7px;border:1px solid rgba(230,200,79,.25);border-radius:7px;background:rgba(230,200,79,.06);color:#ddd;padding:8px 9px;cursor:pointer;font-size:9px;font-weight:bold;letter-spacing:.3px}
+      .notes-map-place-button:hover{background:rgba(230,200,79,.12);border-color:rgba(230,200,79,.45);color:#fff}
+      #notes-placement-overlay{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}
+      .notes-placement-card{width:min(1050px,100%);height:min(760px,calc(100vh - 40px));display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:#111;box-shadow:0 18px 70px rgba(0,0,0,.65)}
+      .notes-placement-head{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+      .notes-placement-head strong{display:block;font-size:13px;color:#eee}
+      .notes-placement-head span{display:block;margin-top:4px;color:#777;font-size:9px}
+      .notes-placement-map{flex:1;min-height:0}
+      .notes-placement-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.08);background:#121212}
+      .notes-placement-coordinates{color:#aaa;font:10px Consolas,monospace}
+      .notes-placement-actions{display:flex;gap:7px}
+      .notes-placement-actions button:disabled{opacity:.45;cursor:not-allowed}
+      @media(max-width:700px){.notes-toolbar{grid-template-columns:1fr}.notes-form-grid{grid-template-columns:1fr}.notes-form-grid .full{grid-column:auto}.notes-row .template-state{display:none}.notes-placement-card{height:calc(100vh - 20px)}.notes-placement-foot{align-items:stretch;flex-direction:column}.notes-placement-actions{justify-content:flex-end}}
     `;
     document.head.appendChild(style);
+
+    const lngParent = document.getElementById("note-lng")?.parentElement;
+    if (lngParent && !document.getElementById("notes-place-map")) {
+      const placeButton = document.createElement("button");
+      placeButton.id = "notes-place-map";
+      placeButton.type = "button";
+      placeButton.className = "notes-map-place-button";
+      placeButton.textContent = "PLACER SUR LA CARTE";
+      placeButton.addEventListener("click", openPlacementPicker);
+      lngParent.appendChild(placeButton);
+    }
 
     document.getElementById("note-duration")?.addEventListener("change", toggleCustomExpiry);
     document.getElementById("notes-save")?.addEventListener("click", saveNote);
