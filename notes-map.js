@@ -7,6 +7,8 @@
     watch: "alliance-notes-pin-watch",
     important: "alliance-notes-pin-important"
   };
+  let loadedNotes = [];
+  let zoneSlugsById = new Map();
 
   function notesToGeoJSON(notes) {
     return {
@@ -84,6 +86,14 @@
     }
   }
 
+  function getVisibleNotes() {
+    if (!zoneFilterEnabled) return loadedNotes;
+    return loadedNotes.filter(note => {
+      const zoneSlug = zoneSlugsById.get(Number(note.zone_id));
+      return zoneSlug ? selectedZones.has(zoneSlug) : false;
+    });
+  }
+
   async function renderNotes(notes) {
     const data = notesToGeoJSON(notes);
     const source = map.getSource(NOTES_SOURCE_ID);
@@ -131,6 +141,37 @@
     }
 
     setupNoteInteractions();
+  }
+
+  function updateNotesMapFilter() {
+    if (!map.getSource(NOTES_SOURCE_ID)) return;
+    renderNotes(getVisibleNotes());
+  }
+
+  function setupZoneFilterListener() {
+    const filter = document.getElementById("zone-filter");
+    if (!filter || filter.dataset.lcNotesFilterBound === "1") return;
+    filter.dataset.lcNotesFilterBound = "1";
+    filter.addEventListener("change", updateNotesMapFilter);
+  }
+
+  async function loadZoneMap() {
+    try {
+      const response = await fetch(ZONES_API_URL, authFetchOptions());
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const zones = await response.json();
+      if (!Array.isArray(zones)) throw new Error("Réponse zones invalide");
+
+      zoneSlugsById = new Map(
+        zones
+          .filter(zone => zone && zone.id != null && zone.slug)
+          .map(zone => [Number(zone.id), zone.slug])
+          .filter(([id]) => Number.isFinite(id))
+      );
+    } catch (error) {
+      zoneSlugsById = new Map();
+      console.warn("Notes carte : impossible de charger la correspondance des zones :", error);
+    }
   }
 
   function setupNoteInteractions() {
@@ -192,17 +233,23 @@
 
   async function loadNotes() {
     try {
-      const response = await fetch(NOTES_MAP_API_URL, authFetchOptions());
-      if (response.status === 401 || response.status === 403) {
-        console.warn("Notes carte : accès refusé (HTTP " + response.status + ")");
+      setupZoneFilterListener();
+      const [notesResponse] = await Promise.all([
+        fetch(NOTES_MAP_API_URL, authFetchOptions()),
+        loadZoneMap()
+      ]);
+
+      if (notesResponse.status === 401 || notesResponse.status === 403) {
+        console.warn("Notes carte : accès refusé (HTTP " + notesResponse.status + ")");
         return;
       }
-      if (!response.ok) throw new Error("HTTP " + response.status);
+      if (!notesResponse.ok) throw new Error("HTTP " + notesResponse.status);
 
-      const data = await response.json();
+      const data = await notesResponse.json();
       if (!data || !Array.isArray(data.notes)) throw new Error("Réponse Notes invalide");
 
-      await renderNotes(data.notes);
+      loadedNotes = data.notes;
+      await renderNotes(getVisibleNotes());
       console.log("Notes carte chargées :", data.notes.length);
     } catch (error) {
       console.error("Impossible de charger les Notes sur la carte :", error);
@@ -211,5 +258,6 @@
 
   window.__loadNotesMap = loadNotes;
   window.__renderNotesMap = renderNotes;
+  window.__updateNotesMapFilter = updateNotesMapFilter;
   loadNotes();
 })();
