@@ -172,8 +172,9 @@
     if (!candidates.length) return;
 
     const featureById = new Map(features.map(feature => [Number(feature.id), feature]));
-    const startedAt = performance.now();
     const duration = 1800;
+    const interval = 3000;
+    const cycles = 3;
     const keyframes = [
       [0.00, -38],
       [0.14, 12],
@@ -185,34 +186,45 @@
       [1.00, 0]
     ];
     const source = map.getSource(NOTES_SOURCE_ID);
-    const animate = now => {
-      const progress = Math.min(1, (now - startedAt) / duration);
-      let rotation = 0;
-      for (let index = 1; index < keyframes.length; index++) {
-        const [endProgress, endRotation] = keyframes[index];
-        if (progress <= endProgress) {
-          const [startProgress, startRotation] = keyframes[index - 1];
-          const localProgress = (progress - startProgress) / (endProgress - startProgress);
-          const eased = localProgress * localProgress * (3 - 2 * localProgress);
-          rotation = startRotation + (endRotation - startRotation) * eased;
-          break;
+    let cycle = 0;
+    let intervalTimer = null;
+
+    const runCycle = () => {
+      const startedAt = performance.now();
+      const animate = now => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        let rotation = 0;
+        for (let index = 1; index < keyframes.length; index++) {
+          const [endProgress, endRotation] = keyframes[index];
+          if (progress <= endProgress) {
+            const [startProgress, startRotation] = keyframes[index - 1];
+            const localProgress = (progress - startProgress) / (endProgress - startProgress);
+            const eased = localProgress * localProgress * (3 - 2 * localProgress);
+            rotation = startRotation + (endRotation - startRotation) * eased;
+            break;
+          }
         }
-      }
-      candidates.forEach(id => {
-        const feature = featureById.get(id);
-        if (feature) feature.properties.rotation = rotation;
-      });
-      if (source) source.setData(data);
-      if (progress < 1) requestAnimationFrame(animate);
-      else {
+        candidates.forEach(id => {
+          const feature = featureById.get(id);
+          if (feature) feature.properties.rotation = rotation;
+        });
+        if (source) source.setData(data);
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+          return;
+        }
         candidates.forEach(id => {
           const feature = featureById.get(id);
           if (feature) feature.properties.rotation = 0;
         });
         if (source) source.setData(data);
-      }
+        cycle += 1;
+        if (cycle < cycles) intervalTimer = setTimeout(runCycle, interval);
+      };
+      requestAnimationFrame(animate);
     };
-    requestAnimationFrame(animate);
+
+    runCycle();
   }
 
   async function renderNotes(notes) {
