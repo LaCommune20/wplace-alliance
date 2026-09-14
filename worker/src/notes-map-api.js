@@ -1,8 +1,5 @@
 import { getEffectiveBusinessRoles } from "./discord-role-model.js";
-import {
-  getCurrentZoneStaffAccess,
-  hasCurrentZoneStaffCapability
-} from "./current-zone-staff-policy.js";
+import { getCurrentZoneStaffAccess } from "./current-zone-staff-policy.js";
 
 function parseNotePosition(value) {
   let position = value;
