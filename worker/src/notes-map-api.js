@@ -194,11 +194,10 @@ export async function handleNotesMapRequest(request, env, deps) {
     const member = await deps.fetchDiscordGuildMember(session.user.id, env);
     const roles = Array.isArray(member?.roles) ? member.roles : [];
     const effectiveRoles = getEffectiveBusinessRoles(roles, env);
-    const canRead = ["admin", "moderator", "zone_admin"].includes(session.access)
-      || effectiveRoles.includes("communard");
+    const canRead = canAccessTacticalMap(roles, env, session.access);
 
     if (!canRead) {
-      return response(deps, request, env, { error: "Accès réservé aux Communards" }, 403);
+      return response(deps, request, env, { error: "Accès réservé aux Communards et rôles supérieurs" }, 403);
     }
 
     const now = new Date().toISOString();
