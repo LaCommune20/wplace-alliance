@@ -129,6 +129,18 @@
     }, map.getLayer(NOTES_LAYER_ID) ? NOTES_LAYER_ID : undefined);
   }
 
+  function setupNotesWPlaceOrderListener() {
+    if (map.__lcNotesWPlaceOrderBound) return;
+    map.__lcNotesWPlaceOrderBound = true;
+    map.on("sourcedata", event => {
+      const source = event.source;
+      if (source?.type !== "image" || typeof source.url !== "string") return;
+      if (!source.url.startsWith(WPLACE_PROXY + "/tile/")) return;
+      if (map.getLayer(NOTES_PULSE_LAYER_ID)) map.moveLayer(NOTES_PULSE_LAYER_ID);
+      if (map.getLayer(NOTES_LAYER_ID)) map.moveLayer(NOTES_LAYER_ID);
+    });
+  }
+
   function startNotesPulseAnimation() {
     if (notePulseFrame != null) return;
     const startedAt = performance.now();
@@ -183,6 +195,7 @@
 
     ensureNotesPulseLayer();
     ensureNotesIcons();
+    setupNotesWPlaceOrderListener();
     const existingLayer = map.getLayer(NOTES_LAYER_ID);
     if (existingLayer && existingLayer.type !== "symbol") map.removeLayer(NOTES_LAYER_ID);
     if (!map.getLayer(NOTES_LAYER_ID)) {
