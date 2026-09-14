@@ -1,5 +1,6 @@
 import { getEffectiveBusinessRoles } from "./discord-role-model.js";
 import { getCurrentZoneStaffAccess } from "./current-zone-staff-policy.js";
+import { canAccessTacticalMap } from "./tactical-map-access-policy.js";
 
 function parseNotePosition(value) {
   let position = value;
@@ -16,6 +17,43 @@ function parseNotePosition(value) {
 
 function response(deps, request, env, data, status) {
   return deps.jsonAuth(request, data, status, env);
+}
+
+async function handleAuthMeRequest(request, env, deps) {
+  const url = new URL(request.url);
+  if (url.pathname !== "/api/auth/me" || request.method !== "GET") return null;
+
+  const session = await deps.requireMember(request, env);
+  if (!session) return response(deps, request, env, { authenticated: false }, 401);
+
+  try {
+    const member = await deps.fetchDiscordGuildMember(session.user.id, env);
+    const roles = Array.isArray(member?.roles) ? member.roles : [];
+
+    if (!canAccessTacticalMap(roles, env, session.access)) {
+      return response(deps, request, env, {
+        authenticated: true,
+        user: session.user,
+        access: "guest",
+        guild_id: env.DISCORD_GUILD_ID,
+        expires_at: session.exp,
+        error: "Accès à la carte tactique réservé aux Communards et rôles supérieurs"
+      }, 200);
+    }
+
+    return response(deps, request, env, {
+      authenticated: true,
+      user: session.user,
+      access: session.access,
+      guild_id: env.DISCORD_GUILD_ID,
+      expires_at: session.exp
+    }, 200);
+  } catch (error) {
+    console.error("Erreur de vérification du rôle Discord /api/auth/me:", error);
+    return response(deps, request, env, {
+      error: "Impossible de vérifier les rôles Discord actuels"
+    }, 503);
+  }
 }
 
 async function handleAdminAccessRequest(request, env, deps) {
@@ -112,6 +150,9 @@ async function handleAdminTemplatesRequest(request, env, deps) {
 }
 
 export async function handleNotesMapRequest(request, env, deps) {
+  const authResponse = await handleAuthMeRequest(request, env, deps);
+  if (authResponse) return authResponse;
+
   const accessResponse = await handleAdminAccessRequest(request, env, deps);
   if (accessResponse) return accessResponse;
 
