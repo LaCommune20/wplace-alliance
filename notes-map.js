@@ -2,6 +2,7 @@
   const NOTES_MAP_API_URL = ZONES_API_URL.replace(/\/zones$/, "/notes");
   const NOTES_SOURCE_ID = "alliance-notes";
   const NOTES_LAYER_ID = "alliance-notes-points";
+  const NOTES_ICON_ID = "alliance-notes-pin";
 
   function notesToGeoJSON(notes) {
     return {
@@ -33,49 +34,90 @@
     };
   }
 
-  function renderNotes(notes) {
+  function ensureNotesIcon() {
+    if (map.hasImage(NOTES_ICON_ID)) return Promise.resolve();
+    if (map.__lcNotesIconPromise) return map.__lcNotesIconPromise;
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><path d="M32 4C18.75 4 8 14.75 8 28c0 17.5 24 32 24 32s24-14.5 24-32C56 14.75 45.25 4 32 4Z" fill="#000"/><circle cx="32" cy="28" r="9" fill="#fff"/></svg>`;
+  
+    map.__lcNotesIconPromise = new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        try {
+          if (!map.hasImage(NOTES_ICON_ID)) {
+            map.addImage(NOTES_ICON_ID, image, { sdf: true, pixelRatio: 2 });
+          }
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.onerror = reject;
+      image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    });
+
+    return map.__lcNotesIconPromise;
+  }
+
+  async function renderNotes(notes) {
     const data = notesToGeoJSON(notes);
     const source = map.getSource(NOTES_SOURCE_ID);
 
     if (source) {
       source.setData(data);
-      return;
+    } else {
+      if (!map.isStyleLoaded()) return;
+
+      map.addSource(NOTES_SOURCE_ID, {
+        type: "geojson",
+        data
+      });
     }
 
-    if (!map.isStyleLoaded()) return;
+    if (map.getLayer(NOTES_LAYER_ID)) return;
 
-    map.addSource(NOTES_SOURCE_ID, {
-      type: "geojson",
-      data
-    });
+    try {
+      await ensureNotesIcon();
 
-    map.addLayer({
-      id: NOTES_LAYER_ID,
-      type: "circle",
-      source: NOTES_SOURCE_ID,
-      paint: {
-        "circle-radius": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          5, 4,
-          9, 6,
-          13, 8
-        ],
-        "circle-color": [
-          "match",
-          ["get", "level"],
-          "important", "#e74c3c",
-          "watch", "#f1c40f",
-          "information", "#3498db",
-          "#3498db"
-        ],
-        "circle-stroke-color": "#ffffff",
-        "circle-stroke-width": 2,
-        "circle-opacity": 0.95
+      if (!map.getLayer(NOTES_LAYER_ID)) {
+        map.addLayer({
+          id: NOTES_LAYER_ID,
+          type: "symbol",
+          source: NOTES_SOURCE_ID,
+          layout: {
+            "icon-image": NOTES_ICON_ID,
+            "icon-anchor": "bottom",
+            "icon-size": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              5, 0.65,
+              9, 0.8,
+              13, 1
+            ],
+            "icon-allow-overlap": true,
+            "icon-ignore-placement": true
+          },
+          paint: {
+            "icon-color": [
+              "match",
+              ["get", "level"],
+              "important", "#e74c3c",
+              "watch", "#f1c40f",
+              "information", "#3498db",
+              "#3498db"
+            ],
+            "icon-halo-color": "#ffffff",
+            "icon-halo-width": 2,
+            "icon-opacity": 1
+          }
+        });
       }
-    });
-    setupNoteInteractions();
+
+      setupNoteInteractions();
+    } catch (error) {
+      console.error("Impossible de créer le marqueur Notes :", error);
+    }
   }
 
   function setupNoteInteractions() {
@@ -159,7 +201,7 @@
         throw new Error("Réponse Notes invalide");
       }
 
-      renderNotes(data.notes);
+      await renderNotes(data.notes);
 
       console.log("Notes carte chargées :", data.notes.length);
     } catch (error) {
