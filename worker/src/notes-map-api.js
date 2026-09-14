@@ -56,6 +56,28 @@ async function handleAuthMeRequest(request, env, deps) {
   }
 }
 
+async function syncExpiredNotes(request, env, deps) {
+  const url = new URL(request.url);
+  if (!url.pathname.startsWith("/api/admin/notes")) return;
+  if (!["GET", "PATCH", "DELETE"].includes(request.method)) return;
+
+  const session = await deps.requireMember(request, env);
+  if (!session) return;
+
+  const now = new Date().toISOString();
+  try {
+    await env.DB.prepare(`
+      UPDATE notes
+      SET status = 'expired'
+      WHERE status = 'active'
+        AND expires_at IS NOT NULL
+        AND expires_at <= ?
+    `).bind(now).run();
+  } catch (error) {
+    console.error("Erreur de synchronisation des expirations Notes:", error);
+  }
+}
+
 async function handleAdminAccessRequest(request, env, deps) {
   const url = new URL(request.url);
   if (url.pathname !== "/api/admin/access" || request.method !== "GET") return null;
@@ -152,6 +174,8 @@ async function handleAdminTemplatesRequest(request, env, deps) {
 export async function handleNotesMapRequest(request, env, deps) {
   const authResponse = await handleAuthMeRequest(request, env, deps);
   if (authResponse) return authResponse;
+
+  await syncExpiredNotes(request, env, deps);
 
   const accessResponse = await handleAdminAccessRequest(request, env, deps);
   if (accessResponse) return accessResponse;
