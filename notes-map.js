@@ -1,14 +1,21 @@
 (() => {
   const NOTES_MAP_API_URL = ZONES_API_URL.replace(/\/zones$/, "/notes");
   const NOTES_SOURCE_ID = "alliance-notes";
+  const NOTES_PULSE_LAYER_ID = "alliance-notes-pulse";
   const NOTES_LAYER_ID = "alliance-notes-points";
   const NOTES_ICON_IDS = {
     information: "alliance-notes-pin-information",
     watch: "alliance-notes-pin-watch",
     important: "alliance-notes-pin-important"
   };
+  const NOTE_LEVEL_COLORS = {
+    information: "#3498db",
+    watch: "#f1c40f",
+    important: "#e74c3c"
+  };
   let loadedNotes = [];
   let zoneSlugsById = new Map();
+  let notePulseFrame = null;
 
   function ensureNotesPopupStyles() {
     if (document.getElementById("lc-notes-popup-style")) return;
@@ -40,6 +47,7 @@
         .filter(note => note && note.position)
         .map(note => ({
           type: "Feature",
+          id: Number(note.id),
           properties: {
             id: note.id,
             zone_id: note.zone_id,
@@ -50,7 +58,7 @@
           },
           geometry: { type: "Point", coordinates: [Number(note.position.lng), Number(note.position.lat)] }
         }))
-        .filter(feature => Number.isFinite(feature.geometry.coordinates[0]) && Number.isFinite(feature.geometry.coordinates[1]))
+        .filter(feature => Number.isFinite(feature.geometry.coordinates[0]) && Number.isFinite(feature.geometry.coordinates[1]) && Number.isFinite(feature.id))
     };
   }
 
@@ -87,8 +95,7 @@
   function ensureNotesIcons() {
     const missing = Object.entries(NOTES_ICON_IDS).filter(([, id]) => !map.hasImage(id));
     if (!missing.length) return;
-    const colors = { information: "#3498db", watch: "#f1c40f", important: "#e74c3c" };
-    for (const [level, id] of missing) map.addImage(id, createPinImage(colors[level]), { pixelRatio: 2 });
+    for (const [level, id] of missing) map.addImage(id, createPinImage(NOTE_LEVEL_COLORS[level]), { pixelRatio: 2 });
   }
 
   function getVisibleNotes() {
@@ -99,6 +106,72 @@
     });
   }
 
+  function ensureNotesPulseLayer() {
+    if (map.getLayer(NOTES_PULSE_LAYER_ID)) return;
+    if (!map.getSource(NOTES_SOURCE_ID)) return;
+    map.addLayer({
+      id: NOTES_PULSE_LAYER_ID,
+      type: "circle",
+      source: NOTES_SOURCE_ID,
+      paint: {
+        "circle-color": [
+          "match",
+          ["get", "level"],
+          "important", NOTE_LEVEL_COLORS.important,
+          "watch", NOTE_LEVEL_COLORS.watch,
+          "information", NOTE_LEVEL_COLORS.information,
+          NOTE_LEVEL_COLORS.information
+        ],
+        "circle-radius": 9,
+        "circle-opacity": 0.22,
+        "circle-blur": 0.55
+      }
+    }, map.getLayer(NOTES_LAYER_ID) ? NOTES_LAYER_ID : undefined);
+  }
+
+  function startNotesPulseAnimation() {
+    if (notePulseFrame != null) return;
+    const startedAt = performance.now();
+    const duration = 2200;
+    const animate = now => {
+      if (!map.getLayer(NOTES_PULSE_LAYER_ID)) {
+        notePulseFrame = null;
+        return;
+      }
+      const progress = ((now - startedAt) % duration) / duration;
+      const wave = (Math.sin(progress * Math.PI * 2 - Math.PI / 2) + 1) / 2;
+      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-radius", 8 + wave * 9);
+      map.setPaintProperty(NOTES_PULSE_LAYER_ID, "circle-opacity", 0.26 - wave * 0.20);
+      notePulseFrame = requestAnimationFrame(animate);
+    };
+    notePulseFrame = requestAnimationFrame(animate);
+  }
+
+  function animateNewNotePins(notes) {
+    if (!map.getLayer(NOTES_LAYER_ID)) return;
+    if (!map.__lcAnimatedNoteIds) map.__lcAnimatedNoteIds = new Set();
+    const candidates = notes
+      .map(note => Number(note.id))
+      .filter(id => Number.isFinite(id) && !map.__lcAnimatedNoteIds.has(id));
+    candidates.forEach(id => map.__lcAnimatedNoteIds.add(id));
+    if (!candidates.length) return;
+
+    const startedAt = performance.now();
+    const duration = 550;
+    const animate = now => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      candidates.forEach(id => {
+        if (map.getSource(NOTES_SOURCE_ID)) {
+          map.setFeatureState({ source: NOTES_SOURCE_ID, id }, { rotation: -28 * (1 - eased) });
+        }
+      });
+      if (progress < 1) requestAnimationFrame(animate);
+      else candidates.forEach(id => map.setFeatureState({ source: NOTES_SOURCE_ID, id }, { rotation: 0 }));
+    };
+    requestAnimationFrame(animate);
+  }
+
   async function renderNotes(notes) {
     const data = notesToGeoJSON(notes);
     const source = map.getSource(NOTES_SOURCE_ID);
@@ -107,10 +180,12 @@
       if (!map.isStyleLoaded()) return;
       map.addSource(NOTES_SOURCE_ID, { type: "geojson", data });
     }
+
+    ensureNotesPulseLayer();
+    ensureNotesIcons();
     const existingLayer = map.getLayer(NOTES_LAYER_ID);
     if (existingLayer && existingLayer.type !== "symbol") map.removeLayer(NOTES_LAYER_ID);
     if (!map.getLayer(NOTES_LAYER_ID)) {
-      ensureNotesIcons();
       map.addLayer({
         id: NOTES_LAYER_ID,
         type: "symbol",
@@ -118,13 +193,17 @@
         layout: {
           "icon-image": ["match", ["get", "level"], "important", NOTES_ICON_IDS.important, "watch", NOTES_ICON_IDS.watch, "information", NOTES_ICON_IDS.information, NOTES_ICON_IDS.information],
           "icon-anchor": "bottom",
+          "icon-rotation-alignment": "viewport",
           "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.7, 9, 0.9, 13, 1.15],
+          "icon-rotate": ["coalesce", ["feature-state", "rotation"], 0],
           "icon-allow-overlap": true,
           "icon-ignore-placement": true
         }
       });
     }
     setupNoteInteractions();
+    startNotesPulseAnimation();
+    animateNewNotePins(notes);
   }
 
   function updateNotesMapFilter() {
@@ -168,7 +247,7 @@
         if (!feature) return;
         const properties = feature.properties || {};
         const levelLabels = { information: "Information", watch: "Veille", important: "Important" };
-        const levelColors = { information: "#3498db", watch: "#f1c40f", important: "#e74c3c" };
+        const levelColors = NOTE_LEVEL_COLORS;
         const color = levelColors[properties.level] || levelColors.information;
         const container = document.createElement("div");
         container.className = "lc-note-popup";
