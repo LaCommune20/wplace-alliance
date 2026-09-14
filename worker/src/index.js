@@ -1,6 +1,7 @@
 import { getCurrentSessionAccess } from "./discord-role-model.js";
 import { validateZoneStaffAssignmentRoles } from "./zone-staff-assignment-policy.js";
 import { handleAdminNotesRequest } from "./notes-api.js";
+import { handleNotesMapRequest } from "./notes-map-api.js";
 
 async function runRadarScan(env, radarIdInput, options = {}) {
   const scanOptions = options && typeof options === "object" ? options : {};
@@ -479,6 +480,14 @@ export default {
     if (request.method === "OPTIONS") {
       return corsPreflight(request, env);
     }
+
+    const notesMapResponse = await handleNotesMapRequest(request, env, {
+      requireMember,
+      fetchDiscordGuildMember,
+      jsonAuth
+    });
+
+    if (notesMapResponse) return notesMapResponse;
 
     const notesResponse = await handleAdminNotesRequest(request, env, {
       requireMember,
