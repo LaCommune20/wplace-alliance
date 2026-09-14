@@ -150,9 +150,19 @@
 
   function setupZoneFilterListener() {
     const filter = document.getElementById("zone-filter");
-    if (!filter || filter.dataset.lcNotesFilterBound === "1") return;
-    filter.dataset.lcNotesFilterBound = "1";
-    filter.addEventListener("change", updateNotesMapFilter);
+    if (filter && filter.dataset.lcNotesFilterBound !== "1") {
+      filter.dataset.lcNotesFilterBound = "1";
+      filter.addEventListener("change", updateNotesMapFilter);
+    }
+
+    if (document.documentElement.dataset.lcNotesZoneSelectionBound !== "1") {
+      document.documentElement.dataset.lcNotesZoneSelectionBound = "1";
+      document.addEventListener("change", event => {
+        if (event.target instanceof HTMLInputElement && event.target.matches("#zones-list .zone-check")) {
+          updateNotesMapFilter();
+        }
+      });
+    }
   }
 
   async function loadZoneMap() {
