@@ -5457,16 +5457,33 @@ async function getSession(request, env) {
 }
 
 async function requireMember(request, env) {
-  return getSession(request, env);
+  const session = await getSession(request, env);
+  if (!session) return null;
+
+  const member = await fetchDiscordGuildMember(session.user.id, env);
+  if (!member) return null;
+
+  const roles = Array.isArray(member.roles) ? member.roles : [];
+  const access = getCurrentSessionAccess(
+    roles,
+    env,
+    session.user.id,
+    DEV_ZONE_ADMIN_USER_ID
+  );
+
+  return {
+    ...session,
+    access
+  };
 }
 
 async function requireAdmin(request, env) {
-  const session = await getSession(request, env);
+  const session = await requireMember(request, env);
   return session?.access === "admin" ? session : null;
 }
 
 async function requireAdminOrModerator(request, env) {
-  const session = await getSession(request, env);
+  const session = await requireMember(request, env);
   return session && ["admin", "moderator", "zone_admin"].includes(session.access)
     ? session
     : null;
