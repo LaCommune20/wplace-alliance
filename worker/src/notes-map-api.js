@@ -1,4 +1,3 @@
-import { getEffectiveBusinessRoles } from "./discord-role-model.js";
 import { getCurrentZoneStaffAccess } from "./current-zone-staff-policy.js";
 import { canAccessTacticalMap } from "./tactical-map-access-policy.js";
 
@@ -193,7 +192,6 @@ export async function handleNotesMapRequest(request, env, deps) {
   try {
     const member = await deps.fetchDiscordGuildMember(session.user.id, env);
     const roles = Array.isArray(member?.roles) ? member.roles : [];
-    const effectiveRoles = getEffectiveBusinessRoles(roles, env);
     const canRead = canAccessTacticalMap(roles, env, session.access);
 
     if (!canRead) {
