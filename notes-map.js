@@ -2,7 +2,11 @@
   const NOTES_MAP_API_URL = ZONES_API_URL.replace(/\/zones$/, "/notes");
   const NOTES_SOURCE_ID = "alliance-notes";
   const NOTES_LAYER_ID = "alliance-notes-points";
-  const NOTES_ICON_ID = "alliance-notes-pin";
+  const NOTES_ICON_IDS = {
+    information: "alliance-notes-pin-information",
+    watch: "alliance-notes-pin-watch",
+    important: "alliance-notes-pin-important"
+  };
 
   function notesToGeoJSON(notes) {
     return {
@@ -21,10 +25,7 @@
           },
           geometry: {
             type: "Point",
-            coordinates: [
-              Number(note.position.lng),
-              Number(note.position.lat)
-            ]
+            coordinates: [Number(note.position.lng), Number(note.position.lat)]
           }
         }))
         .filter(feature =>
@@ -34,29 +35,53 @@
     };
   }
 
-  function ensureNotesIcon() {
-    if (map.hasImage(NOTES_ICON_ID)) return Promise.resolve();
-    if (map.__lcNotesIconPromise) return map.__lcNotesIconPromise;
+  function createPinImage(color) {
+    const size = 64;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
 
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><path d="M32 4C18.75 4 8 14.75 8 28c0 17.5 24 32 24 32s24-14.5 24-32C56 14.75 45.25 4 32 4Z" fill="#000"/><circle cx="32" cy="28" r="9" fill="#fff"/></svg>`;
-  
-    map.__lcNotesIconPromise = new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => {
-        try {
-          if (!map.hasImage(NOTES_ICON_ID)) {
-            map.addImage(NOTES_ICON_ID, image, { sdf: true, pixelRatio: 2 });
-          }
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      };
-      image.onerror = reject;
-      image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-    });
+    ctx.clearRect(0, 0, size, size);
+    ctx.beginPath();
+    ctx.moveTo(32, 60);
+    ctx.bezierCurveTo(29, 56, 8, 38, 8, 27);
+    ctx.arc(32, 27, 24, Math.PI, 0, false);
+    ctx.bezierCurveTo(56, 38, 35, 56, 32, 60);
+    ctx.closePath();
+    ctx.fillStyle = "#111111";
+    ctx.fill();
 
-    return map.__lcNotesIconPromise;
+    ctx.beginPath();
+    ctx.moveTo(32, 54);
+    ctx.bezierCurveTo(29, 50, 14, 36, 14, 27);
+    ctx.arc(32, 27, 18, Math.PI, 0, false);
+    ctx.bezierCurveTo(50, 36, 35, 50, 32, 54);
+    ctx.closePath();
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(32, 27, 11, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    return ctx.getImageData(0, 0, size, size);
+  }
+
+  function ensureNotesIcons() {
+    const missing = Object.entries(NOTES_ICON_IDS).filter(([, id]) => !map.hasImage(id));
+    if (!missing.length) return;
+
+    const colors = {
+      information: "#3498db",
+      watch: "#f1c40f",
+      important: "#e74c3c"
+    };
+
+    for (const [level, id] of missing) {
+      map.addImage(id, createPinImage(colors[level]), { pixelRatio: 2 });
+    }
   }
 
   async function renderNotes(notes) {
@@ -67,57 +92,45 @@
       source.setData(data);
     } else {
       if (!map.isStyleLoaded()) return;
+      map.addSource(NOTES_SOURCE_ID, { type: "geojson", data });
+    }
 
-      map.addSource(NOTES_SOURCE_ID, {
-        type: "geojson",
-        data
+    const existingLayer = map.getLayer(NOTES_LAYER_ID);
+    if (existingLayer && existingLayer.type !== "symbol") {
+      map.removeLayer(NOTES_LAYER_ID);
+    }
+
+    if (!map.getLayer(NOTES_LAYER_ID)) {
+      ensureNotesIcons();
+      map.addLayer({
+        id: NOTES_LAYER_ID,
+        type: "symbol",
+        source: NOTES_SOURCE_ID,
+        layout: {
+          "icon-image": [
+            "match",
+            ["get", "level"],
+            "important", NOTES_ICON_IDS.important,
+            "watch", NOTES_ICON_IDS.watch,
+            "information", NOTES_ICON_IDS.information,
+            NOTES_ICON_IDS.information
+          ],
+          "icon-anchor": "bottom",
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            5, 0.7,
+            9, 0.9,
+            13, 1.15
+          ],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true
+        }
       });
     }
 
-    if (map.getLayer(NOTES_LAYER_ID)) return;
-
-    try {
-      await ensureNotesIcon();
-
-      if (!map.getLayer(NOTES_LAYER_ID)) {
-        map.addLayer({
-          id: NOTES_LAYER_ID,
-          type: "symbol",
-          source: NOTES_SOURCE_ID,
-          layout: {
-            "icon-image": NOTES_ICON_ID,
-            "icon-anchor": "bottom",
-            "icon-size": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              5, 0.65,
-              9, 0.8,
-              13, 1
-            ],
-            "icon-allow-overlap": true,
-            "icon-ignore-placement": true
-          },
-          paint: {
-            "icon-color": [
-              "match",
-              ["get", "level"],
-              "important", "#e74c3c",
-              "watch", "#f1c40f",
-              "information", "#3498db",
-              "#3498db"
-            ],
-            "icon-halo-color": "#ffffff",
-            "icon-halo-width": 2,
-            "icon-opacity": 1
-          }
-        });
-      }
-
-      setupNoteInteractions();
-    } catch (error) {
-      console.error("Impossible de créer le marqueur Notes :", error);
-    }
+    setupNoteInteractions();
   }
 
   function setupNoteInteractions() {
@@ -134,7 +147,6 @@
           watch: "Veille",
           important: "Important"
         };
-
         const container = document.createElement("div");
 
         const level = document.createElement("strong");
@@ -163,10 +175,7 @@
           container.appendChild(expiration);
         }
 
-        new maplibregl.Popup({
-          closeButton: true,
-          closeOnClick: true
-        })
+        new maplibregl.Popup({ closeButton: true, closeOnClick: true })
           .setLngLat(event.lngLat)
           .setDOMContent(container)
           .addTo(map);
@@ -175,7 +184,6 @@
       map.on("mouseenter", NOTES_LAYER_ID, () => {
         map.getCanvas().style.cursor = "pointer";
       });
-
       map.on("mouseleave", NOTES_LAYER_ID, () => {
         map.getCanvas().style.cursor = "";
       });
@@ -185,24 +193,16 @@
   async function loadNotes() {
     try {
       const response = await fetch(NOTES_MAP_API_URL, authFetchOptions());
-
       if (response.status === 401 || response.status === 403) {
         console.warn("Notes carte : accès refusé (HTTP " + response.status + ")");
         return;
       }
-
-      if (!response.ok) {
-        throw new Error("HTTP " + response.status);
-      }
+      if (!response.ok) throw new Error("HTTP " + response.status);
 
       const data = await response.json();
-
-      if (!data || !Array.isArray(data.notes)) {
-        throw new Error("Réponse Notes invalide");
-      }
+      if (!data || !Array.isArray(data.notes)) throw new Error("Réponse Notes invalide");
 
       await renderNotes(data.notes);
-
       console.log("Notes carte chargées :", data.notes.length);
     } catch (error) {
       console.error("Impossible de charger les Notes sur la carte :", error);
@@ -211,6 +211,5 @@
 
   window.__loadNotesMap = loadNotes;
   window.__renderNotesMap = renderNotes;
-
   loadNotes();
 })();
