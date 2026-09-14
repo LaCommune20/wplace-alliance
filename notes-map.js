@@ -100,7 +100,6 @@
   }
 
   function getVisibleNotes() {
-    if (!zoneFilterEnabled) return loadedNotes;
     return loadedNotes.filter(note => {
       const zoneSlug = zoneSlugsById.get(Number(note.zone_id));
       return zoneSlug ? selectedZones.has(zoneSlug) : false;
@@ -268,11 +267,6 @@
   }
 
   function setupZoneFilterListener() {
-    const filter = document.getElementById("zone-filter");
-    if (filter && filter.dataset.lcNotesFilterBound !== "1") {
-      filter.dataset.lcNotesFilterBound = "1";
-      filter.addEventListener("change", updateNotesMapFilter);
-    }
     if (document.documentElement.dataset.lcNotesZoneSelectionBound !== "1") {
       document.documentElement.dataset.lcNotesZoneSelectionBound = "1";
       document.addEventListener("change", event => {
