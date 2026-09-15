@@ -5457,6 +5457,10 @@ async function getSession(request, env) {
 }
 
 async function requireMember(request, env) {
+  return getSession(request, env);
+}
+
+async function requireCurrentPrivilegedMember(request, env) {
   const session = await getSession(request, env);
   if (!session) return null;
 
@@ -5471,6 +5475,8 @@ async function requireMember(request, env) {
     DEV_ZONE_ADMIN_USER_ID
   );
 
+  if (!["admin", "moderator", "zone_admin"].includes(access)) return null;
+
   return {
     ...session,
     access
@@ -5478,12 +5484,12 @@ async function requireMember(request, env) {
 }
 
 async function requireAdmin(request, env) {
-  const session = await requireMember(request, env);
+  const session = await requireCurrentPrivilegedMember(request, env);
   return session?.access === "admin" ? session : null;
 }
 
 async function requireAdminOrModerator(request, env) {
-  const session = await requireMember(request, env);
+  const session = await requireCurrentPrivilegedMember(request, env);
   return session && ["admin", "moderator", "zone_admin"].includes(session.access)
     ? session
     : null;

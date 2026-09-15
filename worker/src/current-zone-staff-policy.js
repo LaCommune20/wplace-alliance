@@ -8,14 +8,22 @@ const CAPABILITY_ROLES = Object.freeze({
 async function fetchCurrentMember(userId, env) {
   if (!env?.DISCORD_BOT_TOKEN || !env?.DISCORD_GUILD_ID || !userId) return null;
 
-  const response = await fetch(
-    `https://discord.com/api/v10/guilds/${encodeURIComponent(env.DISCORD_GUILD_ID)}/members/${encodeURIComponent(userId)}`,
-    {
-      headers: {
-        Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`
-      }
-    }
-  );
+  const url = `https://discord.com/api/v10/guilds/${encodeURIComponent(env.DISCORD_GUILD_ID)}/members/${encodeURIComponent(userId)}`;
+  const headers = {
+    Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`
+  };
+
+  let response = await fetch(url, { headers });
+
+  if (response.status === 429 || response.status >= 500) {
+    const retryAfter = Number(response.headers.get("retry-after"));
+    const delayMs = Number.isFinite(retryAfter)
+      ? Math.min(Math.max(retryAfter * 1000, 100), 2000)
+      : 250;
+
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    response = await fetch(url, { headers });
+  }
 
   if (response.status === 404) return null;
   if (!response.ok) {
